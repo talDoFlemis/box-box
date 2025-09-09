@@ -1,0 +1,113 @@
+basePath: /
+definitions:
+  main.NewPizzaOrderRequest:
+    properties:
+      destination:
+        type: string
+      size:
+        enum:
+        - small
+        - medium
+        - large
+        type: string
+      toppings:
+        items:
+          type: string
+        type: array
+      username:
+        type: string
+    required:
+    - destination
+    - size
+    - toppings
+    - username
+    type: object
+  main.NewPizzaOrderResponse:
+    properties:
+      order_id:
+        type: string
+      ordered_at:
+        type: string
+    type: object
+  main.OrderResponse:
+    properties:
+      destination:
+        type: string
+      order_id:
+        type: string
+      ordered_at:
+        type: string
+      size:
+        type: string
+      status:
+        description: e.g., "pending", "in_progress", "completed"
+        type: string
+      toppings:
+        items:
+          type: string
+        type: array
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  title: Paddock Gateway
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      produces:
+      - application/json
+      responses:
+        "503":
+          description: error
+          schema:
+            type: string
+      summary: Check the health of the service
+      tags:
+      - health
+  /v1/order:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: New Pizza Order Request
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/main.NewPizzaOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.NewPizzaOrderResponse'
+        "422":
+          description: error
+          schema:
+            type: string
+      summary: Create a new pizza order
+      tags:
+      - order
+  /v1/order/ws:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.OrderResponse'
+      summary: Get live orders via WebSocket
+      tags:
+      - order
+securityDefinitions:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
