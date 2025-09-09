@@ -18,6 +18,21 @@ http:
       - "Content-Type"
       - "X-CSRF-Token"
 
-observability:
-  enabled: false
-  endpoint: localhost:4317
+opentelemetry:
+  enabled: true
+  endpoint: otel-collector:4317
+  insecure: true
+  interval: 20
+  metrics:
+    interval: 60
+    timeout: 30
+  traces:
+    timeout: 30
+    samplerate: 1
+    batchsize: 512
+    maxqueuesize: 1024
+  logs:
+    timeout: 30
+    batchsize: 512
+    maxqueuesize: 2048
+    interval: 30

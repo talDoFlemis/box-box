@@ -6,8 +6,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/spf13/viper"
 	"github.com/go-playground/validator/v10"
+	"github.com/spf13/viper"
 )
 
 type Environment string
@@ -25,7 +25,7 @@ type HTTPSettings struct {
 	Port   string       `mapstructure:"port" validate:"required,numeric"`
 	Prefix string       `mapstructure:"prefix" validate:"required"`
 	IP     string       `mapstructure:"ip" validate:"required,ip"`
-	CORS   CORSSettings `mapstructure:"cors" validate:"required,dive"`
+	CORS   CORSSettings `mapstructure:"cors" validate:"required"`
 }
 
 type ObservabilitySettings struct {
@@ -33,13 +33,48 @@ type ObservabilitySettings struct {
 	Endpoint string `mapstructure:"endpoint" validate:"required_if=Enabled true,url"`
 }
 
-type Config struct {
-	HTTP          HTTPSettings          `mapstructure:"http"`
-	Observability ObservabilitySettings `mapstructure:"observability"`
+type AppSettings struct {
+	Name    string `mapstructure:"name"`
+	Version string `mapstructure:"version"`
+	Env     string `mapstructure:"env"`
 }
 
-func LoadConfig() (*Config, error) {
-	var cfg *Config
+type OpenTelemetryLogSettings struct {
+	TimeoutInSec  int64 `mapstructure:"timeout"`
+	IntervalInSec int64 `mapstructure:"interval"`
+	MaxQueueSize  int   `mapstructure:"maxqueuesize"`
+	BatchSize     int   `mapstructure:"batchsize"`
+}
+
+type OpenTelemetryTraceSettings struct {
+	TimeoutInSec int64 `mapstructure:"timeout"`
+	MaxQueueSize int   `mapstructure:"maxqueuesize"`
+	BatchSize    int   `mapstructure:"batchsize"`
+	SampleRate   int   `mapstructure:"samplerate"`
+}
+
+type OpenTelemetryMetricSettings struct {
+	IntervalInSec int64 `mapstructure:"interval"`
+	TimeoutInSec  int64 `mapstructure:"timeout"`
+}
+
+type OpenTelemetrySettings struct {
+	Enabled  bool                        `mapstructure:"enabled"`
+	Endpoint string                      `mapstructure:"endpoint"`
+	Metrics  OpenTelemetryMetricSettings `mapstructure:"metrics"`
+	Traces   OpenTelemetryTraceSettings  `mapstructure:"traces"`
+	Logs     OpenTelemetryLogSettings    `mapstructure:"logs"`
+	Interval int                         `mapstructure:"interval"`
+}
+
+type Settings struct {
+	App           AppSettings           `mapstructure:"app" validate:"required"`
+	HTTP          HTTPSettings          `mapstructure:"http" validate:"required"`
+	OpenTelemetry OpenTelemetrySettings `mapstructure:"opentelemetry" validate:"required"`
+}
+
+func LoadConfig() (*Settings, error) {
+	var cfg *Settings
 
 	viper.SetConfigType("yaml")
 	err := viper.ReadConfig(bytes.NewReader(baseConfig))
@@ -59,7 +94,7 @@ func LoadConfig() (*Config, error) {
 
 	validate := validator.New()
 	allowedHeaders := map[string]struct{}{
-		"Accept":{}, "Authorization":{}, "Content-Type":{}, "X-CSRF-Token":{},
+		"Accept": {}, "Authorization": {}, "Content-Type": {}, "X-CSRF-Token": {},
 	}
 	validate.RegisterValidation("baseheader", func(fl validator.FieldLevel) bool {
 		header := fl.Field().String()
