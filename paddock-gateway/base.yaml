@@ -1,0 +1,23 @@
+http:
+  port: 8080
+  prefix: "/"
+  ip: 0.0.0.0
+  cors:
+    origins:
+      - "https://*"
+      - "http://*"
+    methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+    headers:
+      - "Accept"
+      - "Authorization"
+      - "Content-Type"
+      - "X-CSRF-Token"
+
+observability:
+  enabled: false
+  endpoint: localhost:4317
