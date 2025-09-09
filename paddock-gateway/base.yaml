@@ -19,7 +19,7 @@ http:
       - "X-CSRF-Token"
 
 opentelemetry:
-  enabled: true
+  enabled: false
   endpoint: otel-collector:4317
   insecure: true
   interval: 20
