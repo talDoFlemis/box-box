@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/go-playground/validator/v10 v10.27.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/samber/slog-echo v1.17.1
 	github.com/samber/slog-multi v1.5.0
