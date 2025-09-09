@@ -4,3 +4,7 @@ tasks:
   run:
     desc: Run the paddock server
     cmd: go run .
+
+  generate-swagger:
+    desc: "Generate new swagger data manifests"
+    cmd: swag init -o ./docs --parseDependency true

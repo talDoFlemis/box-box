@@ -9,6 +9,11 @@ type NewPizzaOrderRequest struct {
 	Username    string   `json:"username" validate:"required"`
 }
 
+type NewPizzaOrderResponse struct {
+	OrderID   string    `json:"order_id"`
+	OrderedAt time.Time `json:"ordered_at"`
+}
+
 type OrderResponse struct {
 	Size        string    `json:"size"`
 	Toppings    []string  `json:"toppings"`
