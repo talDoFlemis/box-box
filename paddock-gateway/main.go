@@ -8,14 +8,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	healthgo "github.com/hellofresh/health-go/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/nats-io/nats.go"
 	echoSwagger "github.com/swaggo/echo-swagger"
+	"github.com/taldoflemis/box-box/pacchetto/telemetry"
 	_ "github.com/taldoflemis/box-box/paddock-gateway/docs"
-	"go.opentelemetry.io/contrib/instrumentation/runtime"
 )
 
 // @title						Paddock Gateway
@@ -50,7 +49,7 @@ func main() {
 	}
 
 	slog.InfoContext(ctx, "Setting up opentelemetry")
-	otelShutdown, err := SetupOTelSDK(ctx, *settings)
+	otelShutdown, err := telemetry.SetupOTelSDK(ctx, settings.App, settings.OpenTelemetry)
 	if err != nil {
 		slog.Error("failed to setup telemetry", slog.Any("err", err))
 		retcode = 1
@@ -68,16 +67,6 @@ func main() {
 			retcode = 1
 		}
 	}()
-
-	if settings.OpenTelemetry.Enabled {
-		interval := time.Duration(settings.OpenTelemetry.Interval) * time.Second
-		err = runtime.Start(runtime.WithMinimumReadMemStatsInterval(interval))
-		if err != nil {
-			slog.Error("failed to start runtime collector", slog.Any("error", err))
-			retcode = 1
-			return
-		}
-	}
 
 	errChan := make(chan error)
 	server := echo.New()
