@@ -1,0 +1,26 @@
+# Compiled binaries
+*.exe
+*.bin
+*.out
+*/main
+# If your main executable has a specific name, e.g., myapp
+myapp
+
+# Go module cache and build artifacts
+.cache/
+go.sum # If you want to ignore go.sum (generally not recommended for reproducible builds)
+
+# Dependency vendor directory (if not using Go Modules, or explicitly managing vendor)
+vendor/
+
+# Editor/IDE specific files
+.idea/
+.vscode/
+*.swp
+*.bak
+.DS_Store # macOS specific
+Thumbs.db # Windows specific
+
+# Log files and temporary files
+*.log
+tmp/
