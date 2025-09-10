@@ -14,7 +14,7 @@ type NewPizzaOrderResponse struct {
 	OrderedAt time.Time `json:"ordered_at"`
 }
 
-type OrderResponse struct {
+type Order struct {
 	Size        string    `json:"size"`
 	Toppings    []string  `json:"toppings"`
 	Destination string    `json:"destination"`

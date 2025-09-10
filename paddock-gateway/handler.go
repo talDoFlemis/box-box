@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -12,18 +13,82 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	slogecho "github.com/samber/slog-echo"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
+
+var tracer = otel.Tracer("paddock-gateway/handler")
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
 
-type MainHandler struct {
-	orders               map[string]OrderResponse
-	liveEventSubscribers map[*websocket.Conn]chan OrderResponse
+type OrderPubSubber interface {
+	PubOrder(ctx context.Context, order Order) error
+	SubLiveOrders(ctx context.Context, ws *websocket.Conn) (<-chan Order, error)
+	UnsubLiveOrders(ctx context.Context, ws *websocket.Conn) error
+}
+
+type GoChannelOrderPubSubber struct {
+	liveEventSubscribers map[*websocket.Conn]chan Order
 	mu                   sync.Mutex
+}
+
+func NewGoChannelOrderPubSubber() *GoChannelOrderPubSubber {
+	return &GoChannelOrderPubSubber{
+		liveEventSubscribers: make(map[*websocket.Conn]chan Order),
+	}
+}
+
+var _ OrderPubSubber = (*GoChannelOrderPubSubber)(nil)
+
+// PubOrder implements OrderPubSubber.
+func (g *GoChannelOrderPubSubber) PubOrder(ctx context.Context, order Order) error {
+	ctx, span := tracer.Start(ctx, "GoChannelOrderPubSubber.PubOrder")
+	defer span.End()
+
+	slog.InfoContext(ctx, "publishing order", slog.String("order_id", order.OrderID))
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	for _, subChan := range g.liveEventSubscribers {
+		subChan <- order
+	}
+
+	return nil
+}
+
+// SubLiveOrders implements OrderPubSubber.
+func (g *GoChannelOrderPubSubber) SubLiveOrders(ctx context.Context, ws *websocket.Conn) (<-chan Order, error) {
+	ctx, span := tracer.Start(ctx, "GoChannelOrderPubSubber.SubLiveOrders")
+	defer span.End()
+
+	slog.InfoContext(ctx, "subscribing to live orders")
+
+	ch := make(chan Order)
+
+	g.liveEventSubscribers[ws] = ch
+
+	return ch, nil
+}
+
+// UnsubLiveOrders implements OrderPubSubber.
+func (g *GoChannelOrderPubSubber) UnsubLiveOrders(ctx context.Context, ws *websocket.Conn) error {
+	ctx, span := tracer.Start(ctx, "GoChannelOrderPubSubber.UnsubLiveOrders")
+	defer span.End()
+
+	slog.InfoContext(ctx, "unsubscribing from live orders")
+
+	delete(g.liveEventSubscribers, ws)
+
+	return nil
+}
+
+type MainHandler struct {
+	orders         map[string]Order
+	orderPubSubber OrderPubSubber
 }
 
 func NewMainHandler(e *echo.Echo, settings *Settings) *MainHandler {
@@ -52,8 +117,8 @@ func NewMainHandler(e *echo.Echo, settings *Settings) *MainHandler {
 	))
 
 	handler := &MainHandler{
-		orders:               make(map[string]OrderResponse),
-		liveEventSubscribers: make(map[*websocket.Conn]chan OrderResponse),
+		orders:         make(map[string]Order),
+		orderPubSubber: NewGoChannelOrderPubSubber(),
 	}
 
 	e.GET("/healthz", handler.HealthCheck)
@@ -85,7 +150,7 @@ func (h *MainHandler) OrderNewPizza(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 	}
 
-	newOrder := OrderResponse{
+	newOrder := Order{
 		Size:        req.Size,
 		Toppings:    req.Toppings,
 		Destination: req.Destination,
@@ -102,9 +167,7 @@ func (h *MainHandler) OrderNewPizza(c echo.Context) error {
 		OrderedAt: newOrder.OrderedAt,
 	}
 
-	for _, subChan := range h.liveEventSubscribers {
-		subChan <- newOrder
-	}
+	h.orderPubSubber.PubOrder(c.Request().Context(), newOrder)
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -125,19 +188,14 @@ func (h *MainHandler) GetLiveOrdersRequests(c echo.Context) error {
 		return err
 	}
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	h.liveEventSubscribers[ws] = make(chan OrderResponse)
+	ch, err := h.orderPubSubber.SubLiveOrders(ctx, ws)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to subscribe to live orders", slog.String("error", err.Error()))
+		return err
+	}
 
 	defer func() {
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		if _, ok := h.liveEventSubscribers[ws]; ok {
-			delete(h.liveEventSubscribers, ws)
-			slog.DebugContext(ctx, "removed websocket client")
-		}
-
+		defer h.orderPubSubber.UnsubLiveOrders(ctx, ws)
 		ws.Close()
 	}()
 
@@ -146,7 +204,7 @@ func (h *MainHandler) GetLiveOrdersRequests(c echo.Context) error {
 	for {
 		slog.DebugContext(ctx, "listening for new orders")
 
-		resp := <-h.liveEventSubscribers[ws]
+		resp := <-ch
 		err := ws.WriteJSON(resp)
 		if err != nil {
 			slog.ErrorContext(ctx, "write:", slog.String("error", err.Error()))
