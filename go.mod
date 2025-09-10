@@ -1,4 +1,4 @@
-module github.com/taldoflemis/box-box/paddock-gateway
+module github.com/taldoflemis/box-box
 
 go 1.25.1
 
