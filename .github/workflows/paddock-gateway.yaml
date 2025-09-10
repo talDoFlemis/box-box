@@ -1,0 +1,45 @@
+name: Paddock Gateway CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "paddock-gateway/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "paddock-gateway/**"
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./paddock-gateway
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.1"
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Install Task
+        uses: arduino/setup-task@v1
+        with:
+          version: "3.x"
+
+      - name: Run format check
+        run: task format:check
+
+      - name: Run unit tests
+        run: task test:light
+
+      - name: Build
+        run: task build
