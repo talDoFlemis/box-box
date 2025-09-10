@@ -1,5 +1,11 @@
 package pacchetto
 
+import (
+	"strconv"
+
+	"github.com/nats-io/nats.go"
+)
+
 type Environment string
 
 type CORSSettings struct {
@@ -18,6 +24,23 @@ type HTTPSettings struct {
 type ObservabilitySettings struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	Endpoint string `mapstructure:"endpoint" validate:"required_if=Enabled true,url"`
+}
+
+type NatsSettings struct {
+	UseCredentials bool `mapstructure:"usecredentials"`
+	// Only used if UseCredentials is true
+	Username string `mapstructure:"username" validate:"required_if=UseCredentials true"`
+	Password string `mapstructure:"password" validate:"required_if=UseCredentials true"`
+	Host     string `mapstructure:"host" validate:"required"`
+	Port     int    `mapstructure:"port" validate:"required,min=1"`
+}
+
+func (n *NatsSettings) GetNatsClient() (*nats.Conn, error) {
+	portStr := strconv.Itoa(n.Port)
+	return nats.Connect(
+		n.Host+":"+portStr,
+		nats.UserInfo(n.Username, n.Password),
+	)
 }
 
 type AppSettings struct {
