@@ -1,0 +1,15 @@
+version: "3"
+
+includes:
+  paddock-gateway:
+    taskfile: ./paddock-gateway/Taskfile.yaml
+    dir: ./paddock-gateway
+
+tasks:
+  nats-up:
+    desc: Start NATS server
+    cmd: docker compose up nats -d
+
+  nats-down:
+    desc: Stop NATS server
+    cmd: docker compose down nats
