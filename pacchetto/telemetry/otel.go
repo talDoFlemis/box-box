@@ -1,4 +1,4 @@
-package main
+package telemetry
 
 import (
 	"context"
@@ -8,7 +8,9 @@ import (
 	"time"
 
 	slogmulti "github.com/samber/slog-multi"
+	"github.com/taldoflemis/box-box/pacchetto"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -26,15 +28,16 @@ import (
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func SetupOTelSDK(
 	ctx context.Context,
-	cfg Settings,
+	appSettings pacchetto.AppSettings,
+	otelSettings pacchetto.OpenTelemetrySettings,
 ) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
 
 	res, err := resource.New(
 		ctx,
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String(cfg.App.Name),
-			semconv.ServiceVersionKey.String(cfg.App.Version),
+			semconv.ServiceNameKey.String(appSettings.Name),
+			semconv.ServiceVersionKey.String(appSettings.Version),
 			semconv.ServiceNamespaceKey.String("diafi"),
 		),
 	)
@@ -61,7 +64,7 @@ func SetupOTelSDK(
 	otel.SetTextMapPropagator(prop)
 
 	// Set up trace provider.
-	tracerProvider, err := newTraceProvider(ctx, cfg, res)
+	tracerProvider, err := newTraceProvider(ctx, otelSettings, res)
 	if err != nil {
 		handleErr(err)
 		return nil, err
@@ -70,7 +73,7 @@ func SetupOTelSDK(
 	otel.SetTracerProvider(tracerProvider)
 	otel.SetTextMapPropagator(newPropagator())
 
-	loggerProvider, err := newLoggerProvider(ctx, cfg, res)
+	loggerProvider, err := newLoggerProvider(ctx, appSettings, otelSettings, res)
 	if err != nil {
 		handleErr(err)
 		return nil, err
@@ -78,7 +81,7 @@ func SetupOTelSDK(
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 	global.SetLoggerProvider(loggerProvider)
 
-	meterProvider, err := newMeterProvider(ctx, cfg, res)
+	meterProvider, err := newMeterProvider(ctx, otelSettings, res)
 	if err != nil {
 		handleErr(err)
 		return nil, err
@@ -99,31 +102,31 @@ func newPropagator() propagation.TextMapPropagator {
 
 func newTraceProvider(
 	ctx context.Context,
-	cfg Settings,
+	cfg pacchetto.OpenTelemetrySettings,
 	res *resource.Resource,
 ) (*trace.TracerProvider, error) {
 	traceProvider := trace.NewTracerProvider()
 
-	if cfg.OpenTelemetry.Enabled {
+	if cfg.Enabled {
 		otelSpanExporter, err := otlptracegrpc.New(
 			ctx,
-			otlptracegrpc.WithEndpoint(cfg.OpenTelemetry.Endpoint),
+			otlptracegrpc.WithEndpoint(cfg.Endpoint),
 			otlptracegrpc.WithInsecure(),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		timeout := time.Duration(cfg.OpenTelemetry.Traces.TimeoutInSec) * time.Second
+		timeout := time.Duration(cfg.Traces.TimeoutInSec) * time.Second
 		sampler := trace.ParentBased(
-			trace.TraceIDRatioBased(float64(cfg.OpenTelemetry.Traces.SampleRate)),
+			trace.TraceIDRatioBased(float64(cfg.Traces.SampleRate)),
 		)
 
 		traceProvider = trace.NewTracerProvider(
 			trace.WithBatcher(otelSpanExporter,
 				trace.WithBatchTimeout(timeout),
-				trace.WithMaxQueueSize(cfg.OpenTelemetry.Traces.MaxQueueSize),
-				trace.WithMaxExportBatchSize(cfg.OpenTelemetry.Traces.BatchSize),
+				trace.WithMaxQueueSize(cfg.Traces.MaxQueueSize),
+				trace.WithMaxExportBatchSize(cfg.Traces.BatchSize),
 			),
 			trace.WithSampler(sampler),
 			trace.WithResource(res),
@@ -135,7 +138,8 @@ func newTraceProvider(
 
 func newLoggerProvider(
 	ctx context.Context,
-	cfg Settings,
+	appSettings pacchetto.AppSettings,
+	otelSettings pacchetto.OpenTelemetrySettings,
 	res *resource.Resource,
 ) (*log.LoggerProvider, error) {
 	provider := log.NewLoggerProvider()
@@ -149,26 +153,26 @@ func newLoggerProvider(
 	// Set handler pipeline for logging custom attributes like user.id and errors
 	handlerPipeline := slogmulti.Pipe(errorFormattingMiddleware)
 
-	if !cfg.OpenTelemetry.Enabled {
+	if !otelSettings.Enabled {
 		slog.SetDefault(slog.New(handlerPipeline.Handler(jsonHandler)))
 		return provider, nil
 	}
 
 	otlpExporter, err := otlploggrpc.New(
 		ctx,
-		otlploggrpc.WithEndpoint(cfg.OpenTelemetry.Endpoint),
+		otlploggrpc.WithEndpoint(otelSettings.Endpoint),
 		otlploggrpc.WithInsecure(),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	interval := time.Duration(cfg.OpenTelemetry.Logs.IntervalInSec) * time.Second
-	timeout := time.Duration(cfg.OpenTelemetry.Logs.TimeoutInSec) * time.Second
+	interval := time.Duration(otelSettings.Logs.IntervalInSec) * time.Second
+	timeout := time.Duration(otelSettings.Logs.TimeoutInSec) * time.Second
 
 	processor := log.NewBatchProcessor(otlpExporter,
-		log.WithMaxQueueSize(cfg.OpenTelemetry.Logs.MaxQueueSize),
-		log.WithExportMaxBatchSize(cfg.OpenTelemetry.Logs.BatchSize),
+		log.WithMaxQueueSize(otelSettings.Logs.MaxQueueSize),
+		log.WithExportMaxBatchSize(otelSettings.Logs.BatchSize),
 		log.WithExportTimeout(timeout),
 		log.WithExportInterval(interval),
 	)
@@ -180,9 +184,9 @@ func newLoggerProvider(
 	// Here we bridge the OpenTelemetry logger to the slog logger.
 	// If we want to change the actual logger we must use another bridge
 	otelLogHandler := otelslog.NewHandler(
-		cfg.App.Name,
+		appSettings.Name,
 		otelslog.WithLoggerProvider(loggerProvider),
-		otelslog.WithVersion(cfg.App.Version),
+		otelslog.WithVersion(appSettings.Version),
 		otelslog.WithSource(true),
 	)
 
@@ -197,24 +201,24 @@ func newLoggerProvider(
 
 func newMeterProvider(
 	ctx context.Context,
-	cfg Settings,
+	cfg pacchetto.OpenTelemetrySettings,
 	res *resource.Resource,
 ) (*metric.MeterProvider, error) {
 	// Initialize with noop meter provider
 	meterProvider := metric.NewMeterProvider()
 
-	if cfg.OpenTelemetry.Enabled {
+	if cfg.Enabled {
 		otlpExporter, err := otlpmetricgrpc.New(
 			ctx,
-			otlpmetricgrpc.WithEndpoint(cfg.OpenTelemetry.Endpoint),
+			otlpmetricgrpc.WithEndpoint(cfg.Endpoint),
 			otlpmetricgrpc.WithInsecure(),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		interval := time.Duration(cfg.OpenTelemetry.Metrics.IntervalInSec) * time.Second
-		timeout := time.Duration(cfg.OpenTelemetry.Metrics.TimeoutInSec) * time.Second
+		interval := time.Duration(cfg.Metrics.IntervalInSec) * time.Second
+		timeout := time.Duration(cfg.Metrics.TimeoutInSec) * time.Second
 
 		meterProvider = metric.NewMeterProvider(
 			metric.WithReader(metric.NewPeriodicReader(
@@ -224,6 +228,12 @@ func newMeterProvider(
 			)),
 			metric.WithResource(res),
 		)
+
+		err = runtime.Start(runtime.WithMinimumReadMemStatsInterval(interval))
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to start runtime collector", slog.Any("error", err))
+			return nil, err
+		}
 	}
 
 	return meterProvider, nil
