@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	healthgo "github.com/hellofresh/health-go/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	slogecho "github.com/samber/slog-echo"
@@ -18,7 +19,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-var tracer = otel.Tracer("paddock-gateway/handler")
+var tracer = otel.Tracer("paddock-gateway")
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -91,9 +92,10 @@ func (g *GoChannelOrderPubSubber) UnsubLiveOrders(ctx context.Context, flusher h
 type MainHandler struct {
 	orders         map[string]Order
 	orderPubSubber OrderPubSubber
+	health         *healthgo.Health
 }
 
-func NewMainHandler(e *echo.Echo, settings *Settings, orderPubSubber OrderPubSubber) *MainHandler {
+func NewMainHandler(e *echo.Echo, settings *Settings, orderPubSubber OrderPubSubber, health *healthgo.Health) *MainHandler {
 	logger := slog.Default()
 	e.HideBanner = true
 	e.Use(slogecho.New(logger))
@@ -121,6 +123,7 @@ func NewMainHandler(e *echo.Echo, settings *Settings, orderPubSubber OrderPubSub
 	handler := &MainHandler{
 		orders:         make(map[string]Order),
 		orderPubSubber: orderPubSubber,
+		health:         health,
 	}
 
 	e.GET("/healthz", handler.HealthCheck)
@@ -227,8 +230,16 @@ func (h *MainHandler) GetLiveOrdersSSE(c echo.Context) error {
 // @Summary Check the health of the service
 // @Tags health
 // @Produce json
-// @Failure 503 {string} string "error"
+// @Success 200 {object} healthgo.Check
+// @Failure 503 {object} healthgo.Check
 // @Router /healthz [get]
 func (h *MainHandler) HealthCheck(c echo.Context) error {
-	return c.String(200, "OK")
+	check := h.health.Measure(c.Request().Context())
+
+	statusCode := http.StatusOK
+	if check.Status != healthgo.StatusOK {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	return c.JSON(statusCode, check)
 }

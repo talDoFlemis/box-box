@@ -1,5 +1,68 @@
 basePath: /
 definitions:
+  health.Check:
+    properties:
+      component:
+        allOf:
+        - $ref: '#/definitions/health.Component'
+        description: Component holds information on the component for which checks
+          are made
+      failures:
+        additionalProperties:
+          type: string
+        description: Failures holds the failed checks along with their messages.
+        type: object
+      status:
+        allOf:
+        - $ref: '#/definitions/health.Status'
+        description: Status is the check status.
+      system:
+        allOf:
+        - $ref: '#/definitions/health.System'
+        description: System holds information of the go process.
+      timestamp:
+        description: Timestamp is the time in which the check occurred.
+        type: string
+    type: object
+  health.Component:
+    properties:
+      name:
+        description: Name is the name of the component.
+        type: string
+      version:
+        description: Version is the component version.
+        type: string
+    type: object
+  health.Status:
+    enum:
+    - OK
+    - Partially Available
+    - Unavailable
+    - Timeout during health check
+    type: string
+    x-enum-varnames:
+    - StatusOK
+    - StatusPartiallyAvailable
+    - StatusUnavailable
+    - StatusTimeout
+  health.System:
+    properties:
+      alloc_bytes:
+        description: TotalAllocBytes is the bytes allocated and not yet freed.
+        type: integer
+      goroutines_count:
+        description: GoroutinesCount is the number of the current goroutines.
+        type: integer
+      heap_objects_count:
+        description: HeapObjectsCount is the number of objects in the go heap.
+        type: integer
+      total_alloc_bytes:
+        description: TotalAllocBytes is the total bytes allocated.
+        type: integer
+      version:
+        description: Version is the go version.
+        type: string
+    type: object
   main.NewPizzaOrderRequest:
     properties:
       destination:
@@ -60,10 +123,14 @@ paths:
       produces:
       - application/json
       responses:
-        "503":
-          description: error
+        "200":
+          description: OK
           schema:
-            type: string
+            $ref: '#/definitions/health.Check'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/health.Check'
       summary: Check the health of the service
       tags:
       - health

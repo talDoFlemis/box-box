@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	healthgo "github.com/hellofresh/health-go/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/nats-io/nats.go"
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -98,7 +99,29 @@ func main() {
 		return
 	}
 
-	NewMainHandler(server, settings, orderPubSubber)
+	slog.InfoContext(ctx, "Setting up health checker")
+	health, err := healthgo.New(
+		healthgo.WithComponent(healthgo.Component{
+			Name:    "paddock-gateway",
+			Version: "1.0.0",
+		}),
+		healthgo.WithChecks(healthgo.Config{
+			Name: "nats",
+			Check: func(ctx context.Context) error {
+				if !nc.IsConnected() {
+					return errors.New("NATS connection is not active")
+				}
+				return nil
+			},
+		}),
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create health checker", slog.Any("err", err))
+		retcode = 1
+		return
+	}
+
+	NewMainHandler(server, settings, orderPubSubber, health)
 	server.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	go func() {

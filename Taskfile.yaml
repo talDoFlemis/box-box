@@ -6,10 +6,10 @@ includes:
     dir: ./paddock-gateway
 
 tasks:
-  nats-up:
+  nats:up:
     desc: Start NATS server
     cmd: docker compose up nats -d
 
-  nats-down:
+  nats:down:
     desc: Stop NATS server
     cmd: docker compose down nats
