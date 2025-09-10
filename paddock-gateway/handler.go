@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -26,18 +27,18 @@ var upgrader = websocket.Upgrader{
 
 type OrderPubSubber interface {
 	PubOrder(ctx context.Context, order Order) error
-	SubLiveOrders(ctx context.Context, ws *websocket.Conn) (<-chan Order, error)
-	UnsubLiveOrders(ctx context.Context, ws *websocket.Conn) error
+	SubLiveOrders(ctx context.Context, flusher http.Flusher) (<-chan Order, error)
+	UnsubLiveOrders(ctx context.Context, flusher http.Flusher) error
 }
 
 type GoChannelOrderPubSubber struct {
-	liveEventSubscribers map[*websocket.Conn]chan Order
+	liveEventSubscribers map[http.Flusher]chan Order
 	mu                   sync.Mutex
 }
 
 func NewGoChannelOrderPubSubber() *GoChannelOrderPubSubber {
 	return &GoChannelOrderPubSubber{
-		liveEventSubscribers: make(map[*websocket.Conn]chan Order),
+		liveEventSubscribers: make(map[http.Flusher]chan Order),
 	}
 }
 
@@ -60,29 +61,30 @@ func (g *GoChannelOrderPubSubber) PubOrder(ctx context.Context, order Order) err
 	return nil
 }
 
-// SubLiveOrders implements OrderPubSubber.
-func (g *GoChannelOrderPubSubber) SubLiveOrders(ctx context.Context, ws *websocket.Conn) (<-chan Order, error) {
+// SubLiveOrders implements OrderPubSubber for SSE.
+func (g *GoChannelOrderPubSubber) SubLiveOrders(ctx context.Context, flusher http.Flusher) (<-chan Order, error) {
 	ctx, span := tracer.Start(ctx, "GoChannelOrderPubSubber.SubLiveOrders")
 	defer span.End()
 
-	slog.InfoContext(ctx, "subscribing to live orders")
+	slog.InfoContext(ctx, "subscribing to live orders (SSE)")
 
 	ch := make(chan Order)
-
-	g.liveEventSubscribers[ws] = ch
-
+	g.mu.Lock()
+	g.liveEventSubscribers[flusher] = ch
+	g.mu.Unlock()
 	return ch, nil
 }
 
-// UnsubLiveOrders implements OrderPubSubber.
-func (g *GoChannelOrderPubSubber) UnsubLiveOrders(ctx context.Context, ws *websocket.Conn) error {
+// UnsubLiveOrders implements OrderPubSubber for SSE.
+func (g *GoChannelOrderPubSubber) UnsubLiveOrders(ctx context.Context, flusher http.Flusher) error {
 	ctx, span := tracer.Start(ctx, "GoChannelOrderPubSubber.UnsubLiveOrders")
 	defer span.End()
 
-	slog.InfoContext(ctx, "unsubscribing from live orders")
+	slog.InfoContext(ctx, "unsubscribing from live orders (SSE)")
 
-	delete(g.liveEventSubscribers, ws)
-
+	g.mu.Lock()
+	delete(g.liveEventSubscribers, flusher)
+	g.mu.Unlock()
 	return nil
 }
 
@@ -125,7 +127,7 @@ func NewMainHandler(e *echo.Echo, settings *Settings, orderPubSubber OrderPubSub
 	v1 := e.Group("/v1")
 
 	v1.POST("/order", handler.OrderNewPizza)
-	v1.GET("/order/ws", handler.GetLiveOrdersRequests)
+	v1.GET("/order/sse", handler.GetLiveOrdersSSE)
 
 	return handler
 }
@@ -172,49 +174,50 @@ func (h *MainHandler) OrderNewPizza(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-// GetLiveOrdersRequests godoc
+// GetLiveOrdersSSE godoc
 //
-// @Summary Get live orders via WebSocket
+// @Summary Get live orders via Server-Sent Events (SSE)
 // @Tags order
-// @Produce json
-// @Success 200 {object} OrderResponse
-// @Router /v1/order/ws [get]
-func (h *MainHandler) GetLiveOrdersRequests(c echo.Context) error {
+// @Produce  text/event-stream
+// @Success 200 {object} Order
+// @Router /v1/orders/sse [get]
+func (h *MainHandler) GetLiveOrdersSSE(c echo.Context) error {
 	ctx := c.Request().Context()
-	// Upgrade websocket connection
-	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
-	if err != nil {
-		slog.ErrorContext(ctx, "failed to upgrade websocket connection", slog.String("error", err.Error()))
-		return err
+	flusher, ok := c.Response().Writer.(http.Flusher)
+	if !ok {
+		slog.ErrorContext(ctx, "streaming unsupported by response writer")
+		return echo.NewHTTPError(http.StatusInternalServerError, "Streaming unsupported")
 	}
 
-	ch, err := h.orderPubSubber.SubLiveOrders(ctx, ws)
+	ch, err := h.orderPubSubber.SubLiveOrders(ctx, flusher)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to subscribe to live orders", slog.String("error", err.Error()))
 		return err
 	}
 
-	ws.SetCloseHandler(func(code int, text string) error {
-		return nil
-	})
+	c.Response().Header().Set(echo.HeaderContentType, "text/event-stream")
+	c.Response().Header().Set("Cache-Control", "no-cache")
+	c.Response().Header().Set("Connection", "keep-alive")
 
-	defer func() {
-		defer h.orderPubSubber.UnsubLiveOrders(ctx, ws)
-		ws.Close()
-	}()
-
-	slog.DebugContext(ctx, "websocket connection established")
-
-	slog.DebugContext(ctx, "listening for new orders")
+	notify := c.Request().Context().Done()
 	for {
 		select {
-		// TODO: listen to websocket close msg
+		case <-notify:
+			slog.InfoContext(ctx, "client closed connection")
+			return h.orderPubSubber.UnsubLiveOrders(ctx, flusher)
 		case resp := <-ch:
-			err := ws.WriteJSON(resp)
+			data, err := json.Marshal(resp)
 			if err != nil {
-				slog.ErrorContext(ctx, "write:", slog.String("error", err.Error()))
+				slog.ErrorContext(ctx, "marshal order for SSE", slog.String("error", err.Error()))
+				continue
+			}
+			_, err = c.Response().Writer.Write([]byte("data: " + string(data) + "\n\n"))
+			if err != nil {
+				slog.ErrorContext(ctx, "write SSE", slog.String("error", err.Error()))
+				h.orderPubSubber.UnsubLiveOrders(ctx, flusher)
 				return err
 			}
+			flusher.Flush()
 		}
 	}
 }

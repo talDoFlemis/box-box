@@ -38,6 +38,9 @@ func main() {
 		os.Exit(retcode)
 	}()
 
+	slog.InfoContext(ctx, "Launching paddock-gateway")
+
+	slog.InfoContext(ctx, "Loading config")
 	settings, err := LoadConfig()
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to load config", slog.Any("err", err))
@@ -45,6 +48,7 @@ func main() {
 		return
 	}
 
+	slog.InfoContext(ctx, "Setting up opentelemetry")
 	otelShutdown, err := SetupOTelSDK(ctx, *settings)
 	if err != nil {
 		slog.Error("failed to setup telemetry", slog.Any("err", err))
@@ -78,10 +82,17 @@ func main() {
 	server := echo.New()
 	server.HideBanner = true
 
-	nc, _ := nats.Connect(nats.DefaultURL)
+	slog.InfoContext(ctx, "Connecting to NATS server")
+	nc, err := nats.Connect(nats.DefaultURL)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to connect to NATS server", slog.Any("err", err))
+		retcode = 1
+		return
+	}
 
 	orderPubSubber, err := NewNATSOrderPubSubber(nc, "orders", "ORDERS")
 	if err != nil {
+		fmt.Println("asdf")
 		slog.ErrorContext(ctx, "failed to create order pub/subber", slog.Any("err", err))
 		retcode = 1
 		return

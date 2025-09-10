@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net/http"
 
-	"github.com/gorilla/websocket"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel"
@@ -17,7 +17,7 @@ type NATSOrderPubSubber struct {
 	nc          *nats.Conn
 	subject     string
 	streamName  string
-	subs        map[*websocket.Conn]jetstream.ConsumeContext
+	subs        map[http.Flusher]jetstream.ConsumeContext
 	js          jetstream.JetStream
 	stream      jetstream.Stream
 	channelSize int
@@ -41,7 +41,7 @@ func NewNATSOrderPubSubber(nc *nats.Conn, subject, streamName string) (*NATSOrde
 		nc:         nc,
 		subject:    subject,
 		streamName: streamName,
-		subs:       make(map[*websocket.Conn]jetstream.ConsumeContext),
+		subs:       make(map[http.Flusher]jetstream.ConsumeContext),
 		stream:     stream,
 		js:         js,
 	}
@@ -80,7 +80,7 @@ func (n *NATSOrderPubSubber) PubOrder(ctx context.Context, order Order) error {
 }
 
 // SubLiveOrders implements OrderPubSubber.
-func (n *NATSOrderPubSubber) SubLiveOrders(ctx context.Context, ws *websocket.Conn) (<-chan Order, error) {
+func (n *NATSOrderPubSubber) SubLiveOrders(ctx context.Context, flusher http.Flusher) (<-chan Order, error) {
 	ctx, span := tracer.Start(ctx, "NATSOrderPubSubber.SubLiveOrders")
 	defer span.End()
 
@@ -124,27 +124,27 @@ func (n *NATSOrderPubSubber) SubLiveOrders(ctx context.Context, ws *websocket.Co
 		return nil, err
 	}
 
-	n.subs[ws] = cons
+	n.subs[flusher] = cons
 
 	return orderCh, nil
 }
 
 // UnsubLiveOrders implements OrderPubSubber.
-func (n *NATSOrderPubSubber) UnsubLiveOrders(ctx context.Context, ws *websocket.Conn) error {
+func (n *NATSOrderPubSubber) UnsubLiveOrders(ctx context.Context, flusher http.Flusher) error {
 	ctx, span := tracer.Start(ctx, "NATSOrderPubSubber.UnsubLiveOrders")
 	defer span.End()
 
 	slog.InfoContext(ctx, "unsubscribing from live orders")
 
-	cons, ok := n.subs[ws]
+	cons, ok := n.subs[flusher]
 	if !ok {
-		slog.WarnContext(ctx, "no subscription found for websocket connection")
+		slog.WarnContext(ctx, "no subscription found for flusher connection")
 		return nil
 	}
 
 	cons.Stop()
 
-	delete(n.subs, ws)
+	delete(n.subs, flusher)
 
 	return nil
 }
