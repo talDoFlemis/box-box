@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	healthgo "github.com/hellofresh/health-go/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -20,11 +19,6 @@ import (
 )
 
 var tracer = otel.Tracer("paddock-gateway")
-
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
 
 type OrderPubSubber interface {
 	PubOrder(ctx context.Context, order Order) error
