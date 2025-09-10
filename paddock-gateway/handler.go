@@ -91,7 +91,7 @@ type MainHandler struct {
 	orderPubSubber OrderPubSubber
 }
 
-func NewMainHandler(e *echo.Echo, settings *Settings) *MainHandler {
+func NewMainHandler(e *echo.Echo, settings *Settings, orderPubSubber OrderPubSubber) *MainHandler {
 	logger := slog.Default()
 	e.HideBanner = true
 	e.Use(slogecho.New(logger))
@@ -118,7 +118,7 @@ func NewMainHandler(e *echo.Echo, settings *Settings) *MainHandler {
 
 	handler := &MainHandler{
 		orders:         make(map[string]Order),
-		orderPubSubber: NewGoChannelOrderPubSubber(),
+		orderPubSubber: orderPubSubber,
 	}
 
 	e.GET("/healthz", handler.HealthCheck)

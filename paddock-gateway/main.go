@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/nats-io/nats.go"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	_ "github.com/taldoflemis/box-box/paddock-gateway/docs"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -77,7 +78,11 @@ func main() {
 	server := echo.New()
 	server.HideBanner = true
 
-	NewMainHandler(server, settings)
+	nc, _ := nats.Connect(nats.DefaultURL)
+
+	orderPubSubber := NewNATSOrderPubSubber(nc, "orders")
+
+	NewMainHandler(server, settings, orderPubSubber)
 	server.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	go func() {

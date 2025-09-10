@@ -1,6 +1,8 @@
 package main
 
-import "time"
+import (
+	"time"
+)
 
 type NewPizzaOrderRequest struct {
 	Size        string   `json:"size" validate:"required,oneof=small medium large"`

@@ -1,16 +1,16 @@
 package main
 
 import (
-	"testing"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestCORSSettingsValidation(t *testing.T) {
 	// Arrange
 	validate := validator.New()
 	allowedHeaders := map[string]struct{}{
-		"Accept":{}, "Authorization":{}, "Content-Type":{}, "X-CSRF-Token":{},
+		"Accept": {}, "Authorization": {}, "Content-Type": {}, "X-CSRF-Token": {},
 	}
 	validate.RegisterValidation("baseheader", func(fl validator.FieldLevel) bool {
 		header := fl.Field().String()
