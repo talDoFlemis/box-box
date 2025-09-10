@@ -194,6 +194,10 @@ func (h *MainHandler) GetLiveOrdersRequests(c echo.Context) error {
 		return err
 	}
 
+	ws.SetCloseHandler(func(code int, text string) error {
+		return nil
+	})
+
 	defer func() {
 		defer h.orderPubSubber.UnsubLiveOrders(ctx, ws)
 		ws.Close()
@@ -201,14 +205,16 @@ func (h *MainHandler) GetLiveOrdersRequests(c echo.Context) error {
 
 	slog.DebugContext(ctx, "websocket connection established")
 
+	slog.DebugContext(ctx, "listening for new orders")
 	for {
-		slog.DebugContext(ctx, "listening for new orders")
-
-		resp := <-ch
-		err := ws.WriteJSON(resp)
-		if err != nil {
-			slog.ErrorContext(ctx, "write:", slog.String("error", err.Error()))
-			return err
+		select {
+		// TODO: listen to websocket close msg
+		case resp := <-ch:
+			err := ws.WriteJSON(resp)
+			if err != nil {
+				slog.ErrorContext(ctx, "write:", slog.String("error", err.Error()))
+				return err
+			}
 		}
 	}
 }

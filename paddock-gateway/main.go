@@ -80,7 +80,12 @@ func main() {
 
 	nc, _ := nats.Connect(nats.DefaultURL)
 
-	orderPubSubber := NewNATSOrderPubSubber(nc, "orders")
+	orderPubSubber, err := NewNATSOrderPubSubber(nc, "orders", "ORDERS")
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create order pub/subber", slog.Any("err", err))
+		retcode = 1
+		return
+	}
 
 	NewMainHandler(server, settings, orderPubSubber)
 	server.GET("/swagger/*", echoSwagger.WrapHandler)
