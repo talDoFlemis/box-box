@@ -1,6 +1,22 @@
 version: "3"
 
 tasks:
+  format:
+    desc: Format the code
+    cmd: go fmt ./...
+
+  format:check:
+    desc: Check if the code is formatted
+    cmd: test -z "$(gofmt -l .)"
+
+  test:light:
+    desc: Run the unit tests
+    cmd: gotestsum --format pkgname --junitfile report.xml -- -short -failfast -race ./...
+
+  build:
+    desc: Build the paddock server
+    cmd: go build .
+
   run:
     desc: Run the paddock server
     cmd: go run .
