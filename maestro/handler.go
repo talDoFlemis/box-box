@@ -9,8 +9,8 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	v1Pb "github.com/taldoflemis/box-box/maestro/v1"
+	"github.com/taldoflemis/box-box/pacchetto/telemetry"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
 )
 
 type Order struct {
@@ -65,10 +65,7 @@ func (n *NATSNewOrderListener) ListenToOrders(ctx context.Context, callback func
 
 	// TODO: Maybe use fetch here?
 	_, err = c.Consume(func(msg jetstream.Msg) {
-		propagator := otel.GetTextMapPropagator()
-		ctx := propagator.Extract(context.Background(), propagation.HeaderCarrier(msg.Headers()))
-		slog.InfoContext(ctx, "Received NATS message", slog.Any("msg", msg.Headers()))
-		slog.InfoContext(ctx, "here is the context", "ctx", ctx.Value)
+		ctx := telemetry.GetContextFromJetstreamMsg(msg)
 		ctx, span := tracer.Start(ctx, "NATSNewOrderListener.Consume")
 		defer span.End()
 

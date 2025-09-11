@@ -8,6 +8,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/taldoflemis/box-box/pacchetto/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
@@ -53,14 +54,14 @@ func (n *NATSOrderPubSubber) PubOrder(ctx context.Context, order Order) error {
 	ctx, span := tracer.Start(ctx, "NATSOrderPubSubber.PubOrder")
 	defer span.End()
 
-	propagator := otel.GetTextMapPropagator()
 	msg := &nats.Msg{
 		Subject: n.subject + ".new",
 		Header:  nats.Header{},
 	}
 
 	slog.InfoContext(ctx, "Publishing order to NATS", "header", msg.Header)
-	propagator.Inject(ctx, propagation.HeaderCarrier(msg.Header))
+	telemetry.InjectContextToNatsMsg(ctx, msg)
+
 	data, err := json.Marshal(order)
 	if err != nil {
 		return err
