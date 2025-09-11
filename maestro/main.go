@@ -95,6 +95,8 @@ func main() {
 
 			if !nc.IsConnected() {
 				status = healthpb.HealthCheckResponse_NOT_SERVING
+			} else {
+				status = healthpb.HealthCheckResponse_SERVING
 			}
 
 			time.Sleep(sleepDuration)
