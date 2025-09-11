@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	slogmulti "github.com/samber/slog-multi"
 	"github.com/taldoflemis/box-box/pacchetto"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -237,4 +239,34 @@ func newMeterProvider(
 	}
 
 	return meterProvider, nil
+}
+
+func GetContextFromJetstreamMsg(msg jetstream.Msg) context.Context {
+	ctx := context.Background()
+	if msg == nil {
+		return ctx
+	}
+
+	propagator := otel.GetTextMapPropagator()
+
+	headers := msg.Headers()
+	// There is a bug in nats go client that makes headers case insensitive
+	headers.Set("Traceparent", headers.Get("traceparent"))
+	headers.Del("traceparent")
+
+	carrier := propagation.HeaderCarrier(headers)
+
+	ctx = propagator.Extract(ctx, carrier)
+	return ctx
+}
+
+func InjectContextToNatsMsg(ctx context.Context, msg *nats.Msg) {
+	if msg == nil {
+		return
+	}
+
+	propagator := otel.GetTextMapPropagator()
+	carrier := propagation.HeaderCarrier(msg.Header)
+
+	propagator.Inject(ctx, carrier)
 }
