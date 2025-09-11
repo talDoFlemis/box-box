@@ -67,6 +67,8 @@ func (n *NATSNewOrderListener) ListenToOrders(ctx context.Context, callback func
 	_, err = c.Consume(func(msg jetstream.Msg) {
 		propagator := otel.GetTextMapPropagator()
 		ctx := propagator.Extract(context.Background(), propagation.HeaderCarrier(msg.Headers()))
+		slog.InfoContext(ctx, "Received NATS message", slog.Any("msg", msg.Headers()))
+		slog.InfoContext(ctx, "here is the context", "ctx", ctx.Value)
 		ctx, span := tracer.Start(ctx, "NATSNewOrderListener.Consume")
 		defer span.End()
 

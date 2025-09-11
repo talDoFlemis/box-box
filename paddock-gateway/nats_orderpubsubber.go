@@ -58,11 +58,14 @@ func (n *NATSOrderPubSubber) PubOrder(ctx context.Context, order Order) error {
 		Subject: n.subject + ".new",
 		Header:  nats.Header{},
 	}
+
+	slog.InfoContext(ctx, "Publishing order to NATS", "header", msg.Header)
 	propagator.Inject(ctx, propagation.HeaderCarrier(msg.Header))
 	data, err := json.Marshal(order)
 	if err != nil {
 		return err
 	}
+	slog.InfoContext(ctx, "after", "header", msg.Header)
 
 	msg.Data = data
 
