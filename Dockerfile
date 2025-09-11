@@ -15,9 +15,12 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 
 COPY . .
 
+ARG package_name
+ENV PACKAGE_NAME=${package_name}
+
 RUN --mount=type=cache,target=/go/pkg/mod/ \
   --mount=type=cache,target="/root/.cache/go-build" \
-  CGO_ENABLED=0 GOOS=linux go build -o server  -ldflags '-s -w -extldflags "-static"' .
+  CGO_ENABLED=0 GOOS=linux go build -o server  -ldflags '-s -w -extldflags "-static"' ./${PACKAGE_NAME}
 
 FROM ubuntu:oracular AS user
 RUN useradd -u 10001 scratchuser
