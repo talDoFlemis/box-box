@@ -17,3 +17,19 @@ tasks:
   nats:down:
     desc: Stop NATS server
     cmd: docker compose down nats
+
+  jaeger:up:
+    desc: Start Jaeger
+    cmd: docker compose up jaeger -d
+
+  jaeger:down:
+    desc: Stop Jaeger
+    cmd: docker compose down jaeger
+
+  otel-collector:up:
+    desc: Start OTel Collector
+    cmd: docker compose up otel-collector -d
+
+  otel-collector:down:
+    desc: Stop OTel Collector
+    cmd: docker compose down otel-collector

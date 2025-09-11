@@ -38,7 +38,7 @@ func SetupOTelSDK(
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(appSettings.Name),
 			semconv.ServiceVersionKey.String(appSettings.Version),
-			semconv.ServiceNamespaceKey.String("diafi"),
+			semconv.ServiceNamespaceKey.String("box-box"),
 		),
 	)
 

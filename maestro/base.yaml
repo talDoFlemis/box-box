@@ -1,5 +1,5 @@
 app:
-  name: api
+  name: maestro
   version: 0.1.0
   env: base
 
