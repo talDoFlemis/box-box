@@ -16,7 +16,7 @@ import (
 var baseConfig []byte
 
 type MaestroSettings struct {
-	PanettiereEndpoint string `mapstructure:"panettiere-endpoint" validate:"required"`
+	PanettiereClient pacchetto.GRPCClientSettings `mapstructure:"panettiere-client" validate:"required"`
 }
 
 type Settings struct {

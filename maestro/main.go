@@ -15,6 +15,7 @@ import (
 	maestrov1pb "github.com/taldoflemis/box-box/maestro/v1"
 	"github.com/taldoflemis/box-box/pacchetto"
 	"github.com/taldoflemis/box-box/pacchetto/telemetry"
+	panettierev1pb "github.com/taldoflemis/box-box/panettiere/v1"
 	"google.golang.org/grpc/health"
 	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -72,11 +73,22 @@ func main() {
 		return
 	}
 
+	slog.InfoContext(ctx, "Creating gRPC client to panettiere service")
+	panettiereConn, err := pacchetto.CreateGRPCClient(ctx, settings.Maestro.PanettiereClient)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create panettiere gRPC client", slog.Any("err", err))
+		retcode = 1
+		return
+	}
+	defer panettiereConn.Close()
+
+	panettiereClient := panettierev1pb.NewPanettiereServiceClient(panettiereConn)
+
 	slog.InfoContext(ctx, "Creating gRPC server")
 	server := pacchetto.CreateGRPCServer()
 	healthcheck := health.NewServer()
 	healthgrpc.RegisterHealthServer(server, healthcheck)
-	maestroHandler := newMaestroHandlerV1()
+	maestroHandler := newMaestroHandlerV1(panettiereClient)
 	maestrov1pb.RegisterMaestroServiceServer(server, maestroHandler)
 
 	if settings.GRPCServer.EnableReflection {

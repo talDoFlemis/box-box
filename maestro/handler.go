@@ -3,14 +3,19 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	v1Pb "github.com/taldoflemis/box-box/maestro/v1"
 	"github.com/taldoflemis/box-box/pacchetto/telemetry"
+	panettierev1pb "github.com/taldoflemis/box-box/panettiere/v1"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Order struct {
@@ -93,15 +98,18 @@ func (n *NATSNewOrderListener) ListenToOrders(ctx context.Context, callback func
 
 type maestroHandlerV1 struct {
 	v1Pb.UnimplementedMaestroServiceServer
+	panettiereClient panettierev1pb.PanettiereServiceClient
 }
 
 var tracer = otel.Tracer("maestro")
 
-var _ v1Pb.MaestroServiceServer = (*maestroHandlerV1)(nil)
-
-func newMaestroHandlerV1() *maestroHandlerV1 {
-	return &maestroHandlerV1{}
+func newMaestroHandlerV1(panettiereClient panettierev1pb.PanettiereServiceClient) *maestroHandlerV1 {
+	return &maestroHandlerV1{
+		panettiereClient: panettiereClient,
+	}
 }
+
+var _ v1Pb.MaestroServiceServer = (*maestroHandlerV1)(nil)
 
 // SayHello implements v1.MaestroServiceServer.
 func (m *maestroHandlerV1) SayHello(ctx context.Context, req *v1Pb.HelloRequest) (*v1Pb.HelloReply, error) {
@@ -116,10 +124,65 @@ func (m *maestroHandlerV1) SayHello(ctx context.Context, req *v1Pb.HelloRequest)
 }
 
 func (m *maestroHandlerV1) processNewOrder(ctx context.Context, order Order) error {
-	ctx, span := tracer.Start(ctx, "maestroHandlerV1.processNewOrder")
+	ctx, span := tracer.Start(ctx, "maestroHandlerV1.processNewOrder", trace.WithAttributes(
+		attribute.String("box-box.orderid", order.OrderID),
+		attribute.String("order.size", order.Size),
+		attribute.String("order.destination", order.Destination),
+		attribute.String("order.username", order.Username),
+		attribute.StringSlice("order.toppings", order.Toppings),
+	))
 	defer span.End()
 
-	slog.DebugContext(ctx, "Processing new order", slog.Any("order", order))
+	slog.DebugContext(ctx, "Processing newjhjh order", slog.Any("order", order))
+
+	doughResponse, err := m.requestDough(ctx, order)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to request dough", slog.String("order-id", order.OrderID), slog.Any("err", err))
+	}
+
+	slog.DebugContext(ctx, "Dough response", slog.Any("doughResponse", doughResponse))
 
 	return nil
+}
+
+func (m *maestroHandlerV1) requestDough(ctx context.Context, order Order) (*panettierev1pb.DoughResponse, error) {
+	ctx, span := tracer.Start(ctx, "maestroHandlerV1.requestDough", trace.WithAttributes(
+		attribute.String("box-box.orderid", order.OrderID),
+		attribute.String("order.size", order.Size),
+		attribute.String("order.destination", order.Destination),
+		attribute.String("order.username", order.Username),
+		attribute.StringSlice("order.toppings", order.Toppings),
+	))
+	defer span.End()
+
+	slog.DebugContext(ctx, "Requesting dough from panettiere", slog.Any("order", order))
+
+	doughRequest := &panettierev1pb.DoughRequest{
+		OrderId: order.OrderID,
+		Border:  panettierev1pb.BorderKind_NoBorder,
+		Size:    panettierev1pb.PizzaSize_Small,
+	}
+
+	doughResponse, err := m.panettiereClient.MakeDough(ctx, doughRequest)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to make dough", slog.String("order-id", order.OrderID), slog.Any("err", err))
+		span.RecordError(err)
+		return nil, err
+	}
+
+	slog.InfoContext(ctx, "Received dough from panettiere", slog.String("order-id", order.OrderID), slog.String("dough-content", doughResponse.Content))
+	return doughResponse, nil
+}
+
+func parsePizzaSize(size string) (panettierev1pb.PizzaSize, error) {
+	switch strings.ToLower(size) {
+	case "small":
+		return panettierev1pb.PizzaSize_Small, nil
+	case "medium":
+		return panettierev1pb.PizzaSize_Medium, nil
+	case "large":
+		return panettierev1pb.PizzaSize_Large, nil
+	default:
+		return panettierev1pb.PizzaSize_Small, fmt.Errorf("unknown pizza size: %s", size)
+	}
 }

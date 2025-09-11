@@ -4,7 +4,8 @@ app:
   env: base
 
 maestro:
-  panettiere-endpoint: http://panettiere-endpoint:7777
+  panettiere-client:
+    address: localhost:7778
 
 nats:
   usecredentials: false
