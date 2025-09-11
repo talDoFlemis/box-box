@@ -5,6 +5,10 @@ includes:
     taskfile: ./paddock-gateway/Taskfile.yaml
     dir: ./paddock-gateway
 
+  maestro:
+    taskfile: ./maestro/Taskfile.yaml
+    dir: ./maestro
+
 tasks:
   nats:up:
     desc: Start NATS server

@@ -26,6 +26,17 @@ type ObservabilitySettings struct {
 	Endpoint string `mapstructure:"endpoint" validate:"required_if=Enabled true,url"`
 }
 
+type GRPCClientSettings struct {
+	Address string `mapstructure:"address" validate:"required"`
+}
+
+type GRPCServerSettings struct {
+	EnableReflection             bool   `mapstructure:"enable-reflection" validate:"required"`
+	AsyncHealthIntervalInSeconds int    `mapstructure:"async-health-interval-in-seconds" validate:"required,min=5"`
+	Port                         int    `mapstructure:"port" validate:"required,min=1"`
+	Host                         string `mapstructure:"host" validate:"required,ip"`
+}
+
 type NatsSettings struct {
 	UseCredentials bool `mapstructure:"usecredentials"`
 	// Only used if UseCredentials is true

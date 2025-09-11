@@ -1,0 +1,39 @@
+app:
+  name: api
+  version: 0.1.0
+  env: base
+
+maestro:
+  panettiere-endpoint: http://panettiere-endpoint:7777
+
+nats:
+  usecredentials: false
+  host: localhost
+  username: nats
+  password: nats
+  port: 4222
+
+grpc-server:
+  enable-reflection: true
+  async-health-interval-in-seconds: 5
+  port: 7777
+  host: 0.0.0.0
+
+opentelemetry:
+  enabled: false
+  endpoint: otel-collector:4317
+  insecure: true
+  interval: 20
+  metrics:
+    interval: 60
+    timeout: 30
+  traces:
+    timeout: 30
+    samplerate: 1
+    batchsize: 512
+    maxqueuesize: 1024
+  logs:
+    timeout: 30
+    batchsize: 512
+    maxqueuesize: 2048
+    interval: 30
