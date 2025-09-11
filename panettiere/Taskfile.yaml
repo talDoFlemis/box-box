@@ -1,0 +1,26 @@
+version: "3"
+
+tasks:
+  grpc:ui:
+    desc: Start gRPC UI for panettiere service
+    cmd: grpcui -plaintext localhost:7778
+
+  run:
+    desc: Run the panettiere service
+    cmd: go run .
+
+  proto:gen:
+    desc: Generate Go code from proto files
+    cmd: protoc --go_out=. --go_opt=module=github.com/taldoflemis/box-box/panettiere --go-grpc_out=. --go-grpc_opt=module=github.com/taldoflemis/box-box/panettiere ../proto/panettiere/**/*.proto -I ../proto
+
+  format:
+    desc: Format the code
+    cmd: go fmt ./...
+
+  format:check:
+    desc: Check if the code is formatted
+    cmd: test -z "$(gofmt -l .)"
+
+  build:
+    desc: Build the paddock server
+    cmd: go build .

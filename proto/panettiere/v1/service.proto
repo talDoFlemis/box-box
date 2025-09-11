@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package panettiere.v1;
+
+option go_package = "github.com/taldoflemis/box-box/panettiere/v1";
+
+import "google/protobuf/empty.proto";
+
+service PanettiereService {
+  rpc MakeDough(DoughRequest) returns (DoughResponse) {}
+  rpc Status(google.protobuf.Empty) returns (StatusResponse) {}
+}
+
+enum BorderKind {
+  NoBorder = 0;
+  CreamCheese = 1;
+  Cheddar = 2;
+  Chocolate = 3;
+}
+
+enum PizzaSize {
+  Small = 0;
+  Medium = 1;
+  Large = 2;
+}
+
+message DoughRequest {
+  string OrderId = 1;
+  BorderKind border = 2;
+  PizzaSize size = 3;
+}
+
+message DoughResponse {
+  string content = 1;
+}
+
+message StatusResponse {
+  string status = 1;
+}

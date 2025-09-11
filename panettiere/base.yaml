@@ -1,0 +1,37 @@
+app:
+  name: panettiere
+  version: 0.1.0
+  env: base
+
+panettiere:
+  period-between-sleep-in-seconds: 60 # Sleep timer every 60 seconds
+  sleep-duration-in-seconds: 30 # Sleep for 30 seconds
+  probability-of-oversleeping: 0.3 # 30% chance to oversleep
+  oversleeping-factor: 2.0 # Sleep 2x longer when oversleeping
+  time-to-make-a-dough-in-seconds: 10 # Make a dough every 10 seconds
+  variance-in-dough-make-in-seconds: 0.5 # Make a dough with a random variance of 50% of the time to make a dough
+
+grpc-server:
+  enable-reflection: true
+  async-health-interval-in-seconds: 5
+  port: 7778
+  host: 0.0.0.0
+
+opentelemetry:
+  enabled: true
+  endpoint: localhost:4317
+  insecure: true
+  interval: 20
+  metrics:
+    interval: 60
+    timeout: 30
+  traces:
+    timeout: 30
+    samplerate: 1
+    batchsize: 512
+    maxqueuesize: 1024
+  logs:
+    timeout: 30
+    batchsize: 512
+    maxqueuesize: 2048
+    interval: 30

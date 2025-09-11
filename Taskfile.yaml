@@ -9,6 +9,10 @@ includes:
     taskfile: ./maestro/Taskfile.yaml
     dir: ./maestro
 
+  panettiere:
+    taskfile: ./panettiere/Taskfile.yaml
+    dir: ./panettiere
+
 tasks:
   nats:up:
     desc: Start NATS server

@@ -1,9 +1,14 @@
 package pacchetto
 
 import (
+	"bytes"
+	"log"
 	"strconv"
+	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/nats-io/nats.go"
+	"github.com/spf13/viper"
 )
 
 type Environment string
@@ -86,4 +91,30 @@ type OpenTelemetrySettings struct {
 	Traces   OpenTelemetryTraceSettings  `mapstructure:"traces"`
 	Logs     OpenTelemetryLogSettings    `mapstructure:"logs"`
 	Interval int                         `mapstructure:"interval"`
+}
+
+func LoadConfig[T any](prefix string, baseConfig []byte) (*T, error) {
+	var cfg *T
+
+	viper.SetConfigType("yaml")
+	err := viper.ReadConfig(bytes.NewReader(baseConfig))
+	if err != nil {
+		log.Println("Failed to read config from yaml")
+		return nil, err
+	}
+
+	viper.SetEnvPrefix(prefix)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", ""))
+	viper.AutomaticEnv()
+
+	err = viper.Unmarshal(&cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
