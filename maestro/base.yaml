@@ -4,6 +4,11 @@ app:
   env: base
 
 maestro:
+  smoking-duration-in-seconds: 1
+  period-between-lunch-in-seconds: 60
+  lunch-duration-in-seconds: 3
+  probability-of-oversmoking: 0.1
+  oversmoking-factor: 1.5
   panettiere-client:
     address: localhost:7778
 

@@ -16,7 +16,12 @@ import (
 var baseConfig []byte
 
 type MaestroSettings struct {
-	PanettiereClient pacchetto.GRPCClientSettings `mapstructure:"panettiere-client" validate:"required"`
+	PanettiereClient            pacchetto.GRPCClientSettings `mapstructure:"panettiere-client" validate:"required"`
+	SmokingDurationInSeconds    int                          `mapstructure:"smoking-duration-in-seconds" validate:"required,min=1"`
+	ProbabilityOfOversmoking    float64                      `mapstructure:"probability-of-oversmoking" validate:"required,gte=0,lte=1"`
+	OversmokingFactor           float64                      `mapstructure:"oversmoking-factor" validate:"required,gt=1"`
+	PeriodBetweenLunchInSeconds int                          `mapstructure:"period-between-lunch-in-seconds" validate:"required,min=30"`
+	LunchDurationInSeconds      int                          `mapstructure:"lunch-duration-in-seconds" validate:"required,min=1"`
 }
 
 type Settings struct {
