@@ -142,7 +142,36 @@ func (m *maestroHandlerV1) processNewOrder(ctx context.Context, order Order) err
 
 	slog.DebugContext(ctx, "Dough response", slog.Any("doughResponse", doughResponse))
 
+	slog.InfoContext(ctx, "Order processed successfully", slog.String("order-id", order.OrderID))
+
+	m.smoke(ctx, order)
+
 	return nil
+}
+
+func (m *maestroHandlerV1) smoke(ctx context.Context, order Order) {
+	ctx, span := tracer.Start(ctx, "maestroHandlerV1.smoke", trace.WithAttributes(
+		attribute.String("box-box.orderid", order.OrderID),
+	))
+	defer span.End()
+
+	slog.DebugContext(ctx, "Starting smoking after order", slog.String("order-id", order.OrderID))
+
+	m.isSmoking = true
+	m.status = "smoking"
+
+	sleepDuration := time.Duration(m.settings.SmokingDurationInSeconds) * time.Second
+
+	hasOversmoked := pacchetto.RandomFunction(uint64(time.Now().UnixNano()), m.settings.ProbabilityOfOversmoking)
+	if hasOversmoked {
+		sleepDuration := time.Duration(float64(m.settings.SmokingDurationInSeconds)*m.settings.OversmokingFactor) * time.Second
+		slog.DebugContext(ctx, "Maestro has oversmoked the pizza", slog.String("order-id", order.OrderID), slog.Float64("oversmoking-factor", m.settings.OversmokingFactor), slog.Duration("new-sleep-duration", sleepDuration))
+		span.SetAttributes(attribute.Bool("maestro.oversmoked", true), attribute.Float64("maestro.oversmoking-factor", m.settings.OversmokingFactor), attribute.String("maestro.new-sleep-duration", sleepDuration.String()))
+	}
+
+	time.Sleep(sleepDuration)
+
+	slog.InfoContext(ctx, "Finished smoking after order", slog.String("order-id", order.OrderID))
 }
 
 func (m *maestroHandlerV1) requestDough(ctx context.Context, order Order) (*panettierev1pb.DoughResponse, error) {
