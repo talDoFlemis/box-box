@@ -9,6 +9,8 @@ maestro:
   lunch-duration-in-seconds: 3
   probability-of-oversmoking: 0.1
   oversmoking-factor: 1.5
+  order-batch-size: 10
+  fetch-max-wait-in-seconds: 5
   panettiere-client:
     address: localhost:7778
 

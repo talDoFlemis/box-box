@@ -22,6 +22,8 @@ type MaestroSettings struct {
 	OversmokingFactor           float64                      `mapstructure:"oversmoking-factor" validate:"required,gt=1"`
 	PeriodBetweenLunchInSeconds int                          `mapstructure:"period-between-lunch-in-seconds" validate:"required,min=30"`
 	LunchDurationInSeconds      int                          `mapstructure:"lunch-duration-in-seconds" validate:"required,min=1"`
+	OrderBatchSize              int                          `mapstructure:"order-batch-size" validate:"required,min=1"`
+	FetchMaxWaitInSeconds       int                          `mapstructure:"fetch-max-wait-in-seconds" validate:"required,min=5"`
 }
 
 type Settings struct {
