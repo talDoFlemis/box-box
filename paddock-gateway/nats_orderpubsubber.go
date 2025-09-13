@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -55,7 +56,8 @@ func (n *NATSOrderPubSubber) PubOrder(ctx context.Context, order Order) error {
 	defer span.End()
 
 	msg := &nats.Msg{
-		Subject: n.subject + ".new",
+		// TODO: Change this to a waiting_payment after we create caixa and maybe higher cardinality subjects
+		Subject: fmt.Sprintf("%s.waiting_to_cook.%s", n.subject, order.OrderID),
 		Header:  nats.Header{},
 	}
 
