@@ -5,10 +5,10 @@ app:
 
 panettiere:
   period-between-sleep-in-seconds: 60 # Sleep timer every 60 seconds
-  sleep-duration-in-seconds: 30 # Sleep for 30 seconds
+  sleep-duration-in-seconds: 10 # Sleep for 30 seconds
   probability-of-oversleeping: 0.3 # 30% chance to oversleep
   oversleeping-factor: 2.0 # Sleep 2x longer when oversleeping
-  time-to-make-a-dough-in-seconds: 10 # Make a dough every 10 seconds
+  time-to-make-a-dough-in-seconds: 2 # Make a dough every 10 seconds
   variance-in-dough-make-in-seconds: 0.5 # Make a dough with a random variance of 50% of the time to make a dough
 
 grpc-server:
