@@ -241,8 +241,7 @@ func newMeterProvider(
 	return meterProvider, nil
 }
 
-func GetContextFromJetstreamMsg(msg jetstream.Msg) context.Context {
-	ctx := context.Background()
+func GetContextFromJetstreamMsg(ctx context.Context, msg jetstream.Msg) context.Context {
 	if msg == nil {
 		return ctx
 	}
