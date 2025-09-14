@@ -18,6 +18,7 @@ var baseConfig []byte
 type Settings struct {
 	App           pacchetto.AppSettings           `mapstructure:"app" validate:"required"`
 	HTTP          pacchetto.HTTPSettings          `mapstructure:"http" validate:"required"`
+	Nats          pacchetto.NatsSettings          `mapstructure:"nats" validate:"required"`
 	OpenTelemetry pacchetto.OpenTelemetrySettings `mapstructure:"opentelemetry" validate:"required"`
 }
 

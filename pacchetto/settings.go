@@ -32,7 +32,9 @@ type ObservabilitySettings struct {
 }
 
 type GRPCClientSettings struct {
-	Address string `mapstructure:"address" validate:"required"`
+	Address                              string `mapstructure:"address" validate:"required"`
+	Retries                              uint   `mapstructure:"retries" validate:"required,min=1"`
+	ExponentialBackoffBaseInMilliseconds int    `mapstructure:"exponential-backoff-base-in-milliseconds" validate:"required,min=100"`
 }
 
 type GRPCServerSettings struct {

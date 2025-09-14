@@ -1,0 +1,190 @@
+services:
+  nats:
+    image: nats:latest
+    command: -js
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    profiles:
+      - aux
+    networks:
+      - services
+
+  traefik:
+    image: "traefik:v3.4"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - services
+      - otel
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=services"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.maestro.address=:7777"
+      - "--entryPoints.panettiere.address=:8888"
+      - "--metrics.otlp.http.endpoint=http://otel-collector:4318"
+      - "--tracing.otlp.http.endpoint=http://otel-collector:4318"
+      - "--api=true"
+      - "--api.dashboard=true"
+      - "--api.debug=true"
+    ports:
+      - 80:80
+      - 8080:8080
+      - 7777:7777
+      - 8888:8888
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    profiles:
+      - services
+    deploy:
+      labels:
+        traefik.enable: true
+        traefik.http.routers.dashboard.service: api@internal
+        traefik.http.routers.dashboard.rule: Host(`dashboard.docker.localhost`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+        traefik.http.routers.dashboard.entrypoints: web
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - otel
+    profiles:
+      - telemetry
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.10.0
+    ports:
+      - 16686:16686
+      - 9411:9411
+    networks:
+      - otel
+    profiles:
+      - telemetry
+
+  paddock-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - package_name=paddock-gateway
+    environment:
+      PADDOCKGATEWAY_NATS_HOST: nats
+      PADDOCKGATEWAY_OPENTELEMETRY_ENDPOINT: otel-collector:4317
+    networks:
+      - otel
+      - services
+    profiles:
+      - services
+    labels:
+      traefik.enable: true
+      traefik.http.routers.paddock-gateway.entrypoints: web
+      traefik.http.routers.paddock-gateway.rule: Host(`paddock-gateway.docker.localhost`) || Host(`paddock-gateway`)
+      traefik.http.services.paddock-gateway.loadbalancer.server.port: 8080
+      traefik.http.services.paddock-gateway.loadbalancer.healthcheck.path: /healthz
+      com.ferrari.box-box.service: "paddock-gateway"
+    deploy:
+      replicas: 3
+      mode: replicated
+      endpoint_mode: vip
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 100M
+        reservations:
+          cpus: "0.10"
+          memory: 20M
+
+  maestro:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - package_name=maestro
+    networks:
+      - otel
+      - services
+    environment:
+      MAESTRO_MAESTRO_PANETTIERECLIENT_ADDRESS: host.docker.internal:8888
+      MAESTRO_NATS_HOST: nats
+      MAESTRO_OPENTELEMETRY_ENDPOINT: otel-collector:4317
+    profiles:
+      - services
+    labels:
+      traefik.enable: true
+      traefik.http.routers.maestro.entrypoints: maestro
+      traefik.http.routers.maestro.rule: Host(`host.docker.internal`)
+      traefik.http.services.maestro.loadbalancer.server.port: 7777
+      traefik.http.services.maestro.loadbalancer.server.scheme: h2c
+      traefik.http.services.maestro.loadbalancer.healthcheck.mode: grpc
+      traefik.http.services.maestro.loadbalancer.healthcheck.interval: 5s
+      com.ferrari.box-box.service: "maestro"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      replicas: 3
+      mode: replicated
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 100M
+        reservations:
+          cpus: "0.10"
+          memory: 20M
+
+  panettiere:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - package_name=panettiere
+    environment:
+      PANETTIERE_OPENTELEMETRY_ENDPOINT: otel-collector:4317
+    networks:
+      - otel
+      - services
+    profiles:
+      - services
+    labels:
+      traefik.enable: true
+      traefik.http.routers.panettiere.entrypoints: panettiere
+      traefik.http.routers.panettiere.rule: Host(`host.docker.internal`)
+      traefik.http.services.panettiere.loadbalancer.server.port: 8888
+      traefik.http.services.panettiere.loadbalancer.server.scheme: h2c
+      traefik.http.services.panettiere.loadbalancer.healthcheck.mode: grpc
+      traefik.http.services.panettiere.loadbalancer.healthcheck.interval: 5s
+      com.ferrari.box-box.service: "panettiere"
+    deploy:
+      replicas: 3
+      mode: replicated
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 100M
+        reservations:
+          cpus: "0.10"
+          memory: 20M
+
+  tifosi-load:
+    build:
+      context: ./tifosi-load/
+      dockerfile: ./Dockerfile
+    environment:
+      PADDOCK_GATEWAY: http://paddock-gateway.docker.localhost:80
+    network_mode: host
+    profiles:
+      - load
+
+networks:
+  otel:
+    driver: bridge
+  services:
+    driver: bridge

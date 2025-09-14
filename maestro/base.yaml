@@ -4,8 +4,17 @@ app:
   env: base
 
 maestro:
+  smoking-duration-in-seconds: 1
+  period-between-lunch-in-seconds: 60
+  lunch-duration-in-seconds: 10
+  probability-of-oversmoking: 0.1
+  oversmoking-factor: 1.5
+  order-batch-size: 10
+  fetch-max-wait-in-seconds: 5
   panettiere-client:
-    address: localhost:7778
+    address: localhost:8888
+    retries: 5
+    exponential-backoff-base-in-milliseconds: 100
 
 nats:
   usecredentials: false

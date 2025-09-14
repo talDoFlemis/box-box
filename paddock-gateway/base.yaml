@@ -3,6 +3,13 @@ app:
   version: 0.1.0
   env: base
 
+nats:
+  usecredentials: false
+  host: localhost
+  username: nats
+  password: nats
+  port: 4222
+
 http:
   port: 8080
   prefix: "/"

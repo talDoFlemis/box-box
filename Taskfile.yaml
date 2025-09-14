@@ -13,7 +13,34 @@ includes:
     taskfile: ./panettiere/Taskfile.yaml
     dir: ./panettiere
 
+  tifosi-load:
+    taskfile: ./tifosi-load/Taskfile.yaml
+    dir: ./tifosi-load
 tasks:
+  aux:up:
+    desc: Start auxiliary services
+    cmd: docker compose --profile aux up -d
+
+  aux:down:
+    desc: Stop auxiliary services
+    cmd: docker compose --profile aux down
+
+  telemetry:up:
+    desc: Start telemetry services
+    cmd: docker compose --profile telemetry up -d
+
+  telemetry:down:
+    desc: Stop telemetry services
+    cmd: docker compose --profile telemetry down
+
+  services:up:
+    desc: Start services
+    cmd: docker compose --profile services up --build -d
+
+  services:down:
+    desc: Stop services
+    cmd: docker compose --profile services down
+
   nats:up:
     desc: Start NATS server
     cmd: docker compose up nats -d
@@ -37,3 +64,7 @@ tasks:
   otel-collector:down:
     desc: Stop OTel Collector
     cmd: docker compose down otel-collector
+
+  load-generator:up:
+    desc: Start load generator
+    cmd: docker compose --profile load up --build

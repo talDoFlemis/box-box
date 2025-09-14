@@ -84,7 +84,6 @@ func (g *GoChannelOrderPubSubber) UnsubLiveOrders(ctx context.Context, flusher h
 }
 
 type MainHandler struct {
-	orders         map[string]Order
 	orderPubSubber OrderPubSubber
 	health         *healthgo.Health
 }
@@ -115,7 +114,6 @@ func NewMainHandler(e *echo.Echo, settings *Settings, orderPubSubber OrderPubSub
 	))
 
 	handler := &MainHandler{
-		orders:         make(map[string]Order),
 		orderPubSubber: orderPubSubber,
 		health:         health,
 	}
@@ -158,8 +156,6 @@ func (h *MainHandler) OrderNewPizza(c echo.Context) error {
 		OrderID:     uuid.New().String(),
 		Status:      "pending",
 	}
-
-	h.orders[newOrder.OrderID] = newOrder
 
 	resp := NewPizzaOrderResponse{
 		OrderID:   newOrder.OrderID,

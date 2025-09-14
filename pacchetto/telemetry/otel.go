@@ -42,6 +42,8 @@ func SetupOTelSDK(
 			semconv.ServiceVersionKey.String(appSettings.Version),
 			semconv.ServiceNamespaceKey.String("box-box"),
 		),
+		resource.WithTelemetrySDK(),
+		resource.WithContainer(),
 	)
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
@@ -241,8 +243,7 @@ func newMeterProvider(
 	return meterProvider, nil
 }
 
-func GetContextFromJetstreamMsg(msg jetstream.Msg) context.Context {
-	ctx := context.Background()
+func GetContextFromJetstreamMsg(ctx context.Context, msg jetstream.Msg) context.Context {
 	if msg == nil {
 		return ctx
 	}
