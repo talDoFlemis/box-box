@@ -285,7 +285,7 @@ func (p *panettiereService) MakeDough(ctx context.Context, req *panettierev1pb.D
 	if p.isSleeping {
 		p.mu.RUnlock()
 		slog.WarnContext(ctx, "Cannot make dough: panettiere is sleeping", slog.String("order-id", req.OrderId))
-		return nil, status.Errorf(codes.ResourceExhausted, "panettiere is sleeping and cannot make dough right now")
+		return nil, status.Errorf(codes.Unavailable, "panettiere is sleeping and cannot make dough right now")
 	}
 	p.mu.RUnlock()
 
