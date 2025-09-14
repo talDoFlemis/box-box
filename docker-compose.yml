@@ -125,6 +125,7 @@ services:
       traefik.http.services.maestro.loadbalancer.server.port: 7777
       traefik.http.services.maestro.loadbalancer.server.scheme: h2c
       traefik.http.services.maestro.loadbalancer.healthcheck.mode: grpc
+      traefik.http.services.maestro.loadbalancer.healthcheck.interval: 5s
       com.ferrari.box-box.service: "maestro"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -159,6 +160,7 @@ services:
       traefik.http.services.panettiere.loadbalancer.server.port: 8888
       traefik.http.services.panettiere.loadbalancer.server.scheme: h2c
       traefik.http.services.panettiere.loadbalancer.healthcheck.mode: grpc
+      traefik.http.services.panettiere.loadbalancer.healthcheck.interval: 5s
       com.ferrari.box-box.service: "panettiere"
     deploy:
       replicas: 3
