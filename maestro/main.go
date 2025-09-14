@@ -84,11 +84,19 @@ func main() {
 
 	panettiereClient := panettierev1pb.NewPanettiereServiceClient(panettiereConn)
 
+	streamName := "ORDERS"
+	subject := "orders"
+	maestroHandler, err := newMaestroHandlerV1(settings.Maestro, panettiereClient, nc, streamName, subject)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create maestro handler", slog.Any("err", err))
+		retcode = 1
+		return
+	}
+
 	slog.InfoContext(ctx, "Creating gRPC server")
 	server := pacchetto.CreateGRPCServer()
 	healthcheck := health.NewServer()
 	healthgrpc.RegisterHealthServer(server, healthcheck)
-	maestroHandler := newMaestroHandlerV1(panettiereClient)
 	maestrov1pb.RegisterMaestroServiceServer(server, maestroHandler)
 
 	if settings.GRPCServer.EnableReflection {
@@ -133,14 +141,8 @@ func main() {
 		}
 	}()
 
-	slog.InfoContext(ctx, "Starting to listen to new orders")
 	go func() {
-		newOrderListener := newOrderListener(nc, "orders.new", "ORDERS")
-		err := newOrderListener.ListenToOrders(ctx, maestroHandler.processNewOrder)
-		if err != nil {
-			slog.ErrorContext(ctx, "failed to listen to new orders", slog.Any("err", err))
-			errChan <- err
-		}
+		maestroHandler.startTurn()
 	}()
 
 	select {
