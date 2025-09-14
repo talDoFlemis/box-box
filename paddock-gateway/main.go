@@ -9,7 +9,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "net/http/pprof"
+
 	healthgo "github.com/hellofresh/health-go/v5"
+	"github.com/labstack/echo-contrib/pprof"
 	"github.com/labstack/echo/v4"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/taldoflemis/box-box/pacchetto/telemetry"
@@ -111,6 +114,7 @@ func main() {
 
 	NewMainHandler(server, settings, orderPubSubber, health)
 	server.GET("/swagger/*", echoSwagger.WrapHandler)
+	pprof.Register(server)
 
 	go func() {
 		slog.InfoContext(ctx, "listening for requests", slog.String("ip", settings.HTTP.IP), slog.String("port", settings.HTTP.Port))
