@@ -116,7 +116,7 @@ services:
     deploy:
       replicas: 3
       mode: replicated
-      endpoint_mode: vip
+      endpoint_mode: dnsrr
       labels:
         com.ferrari.box-box.service: "panettiere"
       resources:
