@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -40,9 +41,16 @@ type maestroHandlerV1 struct {
 	subject          string
 	consumer         jetstream.Consumer
 	jsClient         jetstream.JetStream
+	lunchCounter     metric.Int64Counter
+	lunchHistogram   metric.Float64Histogram
+	smokeCounter     metric.Int64Counter
+	smokeHistogram   metric.Float64Histogram
 }
 
-var tracer = otel.Tracer("maestro")
+var (
+	tracer = otel.Tracer("maestro")
+	meter  = otel.Meter("maestro")
+)
 
 func newMaestroHandlerV1(settings MaestroSettings,
 	panettiereClient panettierev1pb.PanettiereServiceClient,
@@ -51,6 +59,46 @@ func newMaestroHandlerV1(settings MaestroSettings,
 	subject string,
 ) (*maestroHandlerV1, error) {
 	ctx := context.Background()
+
+	lunchCounter, err := meter.Int64Counter(
+		"maestro.lunch.count",
+		metric.WithDescription("Number of lunch cycles the maestro has taken"),
+		metric.WithUnit("{call}"),
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create sleep counter", slog.Any("err", err))
+		return nil, err
+	}
+
+	lunchHistogram, err := meter.Float64Histogram(
+		"maestro.lunch.duration",
+		metric.WithDescription("Duration of lunch cycles the maestro has taken"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create sleep histogram", slog.Any("err", err))
+		return nil, err
+	}
+
+	smokeCounter, err := meter.Int64Counter(
+		"maestro.smoke.count",
+		metric.WithDescription("Number of smokes the maestro has taken"),
+		metric.WithUnit("{call}"),
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create smoke counter", slog.Any("err", err))
+		return nil, err
+	}
+
+	smokeHistogram, err := meter.Float64Histogram(
+		"maestro.smoke.duration",
+		metric.WithDescription("Duration of smokes the maestro has taken"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create smoke histogram", slog.Any("err", err))
+		return nil, err
+	}
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -80,6 +128,10 @@ func newMaestroHandlerV1(settings MaestroSettings,
 		consumer:         c,
 		subject:          subject,
 		jsClient:         js,
+		lunchCounter:     lunchCounter,
+		lunchHistogram:   lunchHistogram,
+		smokeCounter:     smokeCounter,
+		smokeHistogram:   smokeHistogram,
 	}, nil
 }
 
@@ -108,13 +160,11 @@ func (m *maestroHandlerV1) startTurn() {
 	}()
 
 	for {
-		ctx, span := tracer.Start(context.Background(), "maestro.internalLoop")
-		defer span.End()
+		ctx := context.Background()
 		slog.DebugContext(ctx, "Starting internal loop")
 
 		orders, err := m.getNewBatchMessages(ctx)
 		if err != nil {
-			span.SetStatus(codes.Error, err.Error())
 			continue
 		}
 
@@ -175,6 +225,9 @@ func (m *maestroHandlerV1) lunch(ctx context.Context) {
 	slog.InfoContext(ctx, "Maestro is having lunch", slog.Int("lunch-duration-in-seconds", m.settings.LunchDurationInSeconds))
 	time.Sleep(time.Duration(m.settings.LunchDurationInSeconds) * time.Second)
 	slog.InfoContext(ctx, "Maestro finished lunch")
+
+	m.lunchCounter.Add(ctx, 1)
+	m.lunchHistogram.Record(ctx, float64(m.settings.LunchDurationInSeconds))
 
 	m.isLunching = false
 	m.status = "idle"
@@ -295,6 +348,8 @@ func (m *maestroHandlerV1) smoke(ctx context.Context, order Order) {
 	}
 
 	time.Sleep(sleepDuration)
+	m.smokeCounter.Add(ctx, 1)
+	m.smokeHistogram.Record(ctx, sleepDuration.Seconds())
 
 	slog.InfoContext(ctx, "Finished smoking after order", slog.String("order-id", order.OrderID))
 }
