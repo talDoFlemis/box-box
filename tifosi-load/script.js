@@ -16,9 +16,9 @@ export const options = {
       executor: "ramping-vus",
       startVUs: 10,
       stages: [
-        { duration: "10s", target: 100 },
-        { duration: "5s", target: 1000 },
-        { duration: "10s", target: 100 },
+        { duration: "10s", target: 10 },
+        { duration: "2s", target: 100 },
+        { duration: "10s", target: 10 },
       ],
     },
   },
