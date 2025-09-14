@@ -11,7 +11,6 @@ import (
 
 	healthgo "github.com/hellofresh/health-go/v5"
 	"github.com/labstack/echo/v4"
-	"github.com/nats-io/nats.go"
 	echoSwagger "github.com/swaggo/echo-swagger"
 	"github.com/taldoflemis/box-box/pacchetto/telemetry"
 	_ "github.com/taldoflemis/box-box/paddock-gateway/docs"
@@ -73,7 +72,7 @@ func main() {
 	server.HideBanner = true
 
 	slog.InfoContext(ctx, "Connecting to NATS server")
-	nc, err := nats.Connect(nats.DefaultURL)
+	nc, err := settings.Nats.GetNatsClient()
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to connect to NATS server", slog.Any("err", err))
 		retcode = 1
