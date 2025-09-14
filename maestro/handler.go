@@ -258,6 +258,8 @@ func (m *maestroHandlerV1) processNewOrder(ctx context.Context, msg jetstream.Ms
 		attribute.StringSlice("order.toppings", order.Toppings),
 	)
 
+	m.status = fmt.Sprintf("processing order %s", order.OrderID)
+
 	doughResponse, err := m.requestDough(ctx, order)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to request dough", slog.String("order-id", order.OrderID), slog.Any("err", err))
@@ -350,6 +352,9 @@ func (m *maestroHandlerV1) smoke(ctx context.Context, order Order) {
 	time.Sleep(sleepDuration)
 	m.smokeCounter.Add(ctx, 1)
 	m.smokeHistogram.Record(ctx, sleepDuration.Seconds())
+
+	m.isSmoking = false
+	m.status = "idle"
 
 	slog.InfoContext(ctx, "Finished smoking after order", slog.String("order-id", order.OrderID))
 }
