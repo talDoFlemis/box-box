@@ -42,6 +42,8 @@ func SetupOTelSDK(
 			semconv.ServiceVersionKey.String(appSettings.Version),
 			semconv.ServiceNamespaceKey.String("box-box"),
 		),
+		resource.WithTelemetrySDK(),
+		resource.WithContainer(),
 	)
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
