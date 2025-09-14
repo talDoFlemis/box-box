@@ -19,6 +19,8 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type Order struct {
@@ -45,6 +47,7 @@ type maestroHandlerV1 struct {
 	lunchHistogram   metric.Float64Histogram
 	smokeCounter     metric.Int64Counter
 	smokeHistogram   metric.Float64Histogram
+	healthServer     *health.Server
 }
 
 var (
@@ -57,6 +60,7 @@ func newMaestroHandlerV1(settings MaestroSettings,
 	nc *nats.Conn,
 	streamName string,
 	subject string,
+	healthServer *health.Server,
 ) (*maestroHandlerV1, error) {
 	ctx := context.Background()
 
@@ -132,6 +136,7 @@ func newMaestroHandlerV1(settings MaestroSettings,
 		lunchHistogram:   lunchHistogram,
 		smokeCounter:     smokeCounter,
 		smokeHistogram:   smokeHistogram,
+		healthServer:     healthServer,
 	}, nil
 }
 
@@ -219,6 +224,7 @@ func (m *maestroHandlerV1) lunch(ctx context.Context) {
 	))
 	defer span.End()
 
+	m.healthServer.SetServingStatus("maestro", healthpb.HealthCheckResponse_NOT_SERVING)
 	m.isLunching = true
 	m.status = "lunching"
 
@@ -229,6 +235,7 @@ func (m *maestroHandlerV1) lunch(ctx context.Context) {
 	m.lunchCounter.Add(ctx, 1)
 	m.lunchHistogram.Record(ctx, float64(m.settings.LunchDurationInSeconds))
 
+	m.healthServer.SetServingStatus("maestro", healthpb.HealthCheckResponse_SERVING)
 	m.isLunching = false
 	m.status = "idle"
 }

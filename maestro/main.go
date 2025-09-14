@@ -88,7 +88,8 @@ func main() {
 
 	streamName := "ORDERS"
 	subject := "orders"
-	maestroHandler, err := newMaestroHandlerV1(settings.Maestro, panettiereClient, nc, streamName, subject)
+	healthcheck := health.NewServer()
+	maestroHandler, err := newMaestroHandlerV1(settings.Maestro, panettiereClient, nc, streamName, subject, healthcheck)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to create maestro handler", slog.Any("err", err))
 		retcode = 1
@@ -97,7 +98,6 @@ func main() {
 
 	slog.InfoContext(ctx, "Creating gRPC server")
 	server := pacchetto.CreateGRPCServer()
-	healthcheck := health.NewServer()
 	healthgrpc.RegisterHealthServer(server, healthcheck)
 	maestrov1pb.RegisterMaestroServiceServer(server, maestroHandler)
 
