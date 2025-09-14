@@ -12,7 +12,7 @@ maestro:
   order-batch-size: 10
   fetch-max-wait-in-seconds: 5
   panettiere-client:
-    address: localhost:7778
+    address: localhost:8888
 
 nats:
   usecredentials: false

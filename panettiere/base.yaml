@@ -14,7 +14,7 @@ panettiere:
 grpc-server:
   enable-reflection: true
   async-health-interval-in-seconds: 5
-  port: 7778
+  port: 8888
   host: 0.0.0.0
 
 opentelemetry:

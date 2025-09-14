@@ -44,13 +44,17 @@ services:
       PADDOCKGATEWAY_NATS_HOST: nats
       PADDOCKGATEWAY_OPENTELEMETRY_ENDPOINT: otel-collector:4317
     ports:
-      - 8080:8080
+      # Allow at most 10 replicas
+      - 8080-8090:8080
     networks:
       - otel
       - services
     profiles:
       - services
     deploy:
+      replicas: 1
+      mode: replicated
+      endpoint_mode: vip
       labels:
         com.ferrari.box-box.service: "paddock-gateway"
       resources:
@@ -68,17 +72,21 @@ services:
       args:
         - package_name=maestro
     ports:
-      - 7777:7777
+      # Allow at most 5 replicas
+      - 7777-7782:7777
     networks:
       - otel
       - services
     environment:
-      MAESTRO_MAESTRO_PANETTIERECLIENT_ADDRESS: panettiere:7778
+      MAESTRO_MAESTRO_PANETTIERECLIENT_ADDRESS: panettiere:8888
       MAESTRO_NATS_HOST: nats
       MAESTRO_OPENTELEMETRY_ENDPOINT: otel-collector:4317
     profiles:
       - services
     deploy:
+      replicas: 3
+      mode: replicated
+      endpoint_mode: vip
       labels:
         com.ferrari.box-box.service: "maestro"
       resources:
@@ -96,7 +104,8 @@ services:
       args:
         - package_name=panettiere
     ports:
-      - 7778:7778
+      # Allow at most 5 replicas
+      - 8888-8893:8888
     environment:
       PANETTIERE_OPENTELEMETRY_ENDPOINT: otel-collector:4317
     networks:
@@ -105,6 +114,9 @@ services:
     profiles:
       - services
     deploy:
+      replicas: 3
+      mode: replicated
+      endpoint_mode: vip
       labels:
         com.ferrari.box-box.service: "panettiere"
       resources:
