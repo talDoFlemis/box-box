@@ -38,7 +38,7 @@ func main() {
 	slog.InfoContext(ctx, "Launching el-maestro")
 
 	slog.InfoContext(ctx, "Loading config")
-	settings, err := LoadConfig()
+	settings, err := pacchetto.LoadConfig[Settings]("MAESTRO", baseConfig)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to load config", slog.Any("err", err))
 		retcode = 1
@@ -64,6 +64,8 @@ func main() {
 			retcode = 1
 		}
 	}()
+
+	slog.InfoContext(ctx, "Maestro settings", slog.Any("settings", settings.Maestro))
 
 	slog.InfoContext(ctx, "Connecting to NATS server")
 	nc, err := settings.Nats.GetNatsClient()
