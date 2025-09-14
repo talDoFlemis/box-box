@@ -1,0 +1,122 @@
+services:
+  nats:
+    image: nats:latest
+    command: -js
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    profiles:
+      - aux
+    networks:
+      - services
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - otel
+    profiles:
+      - telemetry
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.10.0
+    ports:
+      - 16686:16686
+      - 9411:9411
+    networks:
+      - otel
+    profiles:
+      - telemetry
+
+  paddock-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - package_name=paddock-gateway
+    environment:
+      PADDOCKGATEWAY_NATS_HOST: nats
+      PADDOCKGATEWAY_OPENTELEMETRY_ENDPOINT: otel-collector:4317
+    ports:
+      - 8080:8080
+    networks:
+      - otel
+      - services
+    profiles:
+      - services
+    deploy:
+      labels:
+        com.ferrari.box-box.service: "paddock-gateway"
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 100M
+        reservations:
+          cpus: "0.10"
+          memory: 20M
+
+  maestro:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - package_name=maestro
+    ports:
+      - 7777:7777
+    networks:
+      - otel
+      - services
+    environment:
+      MAESTRO_MAESTRO_PANETTIERECLIENT_ADDRESS: panettiere:7778
+      MAESTRO_NATS_HOST: nats
+      MAESTRO_OPENTELEMETRY_ENDPOINT: otel-collector:4317
+    profiles:
+      - services
+    deploy:
+      labels:
+        com.ferrari.box-box.service: "maestro"
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 100M
+        reservations:
+          cpus: "0.10"
+          memory: 20M
+
+  panettiere:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - package_name=panettiere
+    ports:
+      - 7778:7778
+    environment:
+      PANETTIERE_OPENTELEMETRY_ENDPOINT: otel-collector:4317
+    networks:
+      - otel
+      - services
+    profiles:
+      - services
+    deploy:
+      labels:
+        com.ferrari.box-box.service: "panettiere"
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 100M
+        reservations:
+          cpus: "0.10"
+          memory: 20M
+
+networks:
+  otel:
+    driver: bridge
+  services:
+    driver: bridge

@@ -14,6 +14,30 @@ includes:
     dir: ./panettiere
 
 tasks:
+  aux:up:
+    desc: Start auxiliary services
+    cmd: docker compose --profile aux up -d
+
+  aux:down:
+    desc: Stop auxiliary services
+    cmd: docker compose --profile aux down
+
+  telemetry:up:
+    desc: Start telemetry services
+    cmd: docker compose --profile telemetry up -d
+
+  telemetry:down:
+    desc: Stop telemetry services
+    cmd: docker compose --profile telemetry down
+
+  services:up:
+    desc: Start services
+    cmd: docker compose --profile services up --build -d
+
+  services:down:
+    desc: Stop services
+    cmd: docker compose --profile services down
+
   nats:up:
     desc: Start NATS server
     cmd: docker compose up nats -d
