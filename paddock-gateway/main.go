@@ -84,7 +84,6 @@ func main() {
 
 	orderPubSubber, err := NewNATSOrderPubSubber(nc, "orders", "ORDERS")
 	if err != nil {
-		fmt.Println("asdf")
 		slog.ErrorContext(ctx, "failed to create order pub/subber", slog.Any("err", err))
 		retcode = 1
 		return
