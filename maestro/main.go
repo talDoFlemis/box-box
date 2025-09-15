@@ -144,7 +144,7 @@ func main() {
 	}()
 
 	go func() {
-		maestroHandler.startTurn()
+		maestroHandler.startTurn(ctx)
 	}()
 
 	select {
