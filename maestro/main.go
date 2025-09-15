@@ -54,7 +54,7 @@ func main() {
 	}
 
 	defer func() {
-		err = errors.Join(err, otelShutdown(ctx))
+		err = errors.Join(err, otelShutdown(context.Background()))
 		if err != nil {
 			slog.ErrorContext(
 				ctx,
@@ -144,7 +144,7 @@ func main() {
 	}()
 
 	go func() {
-		maestroHandler.startTurn()
+		maestroHandler.startTurn(ctx)
 	}()
 
 	select {

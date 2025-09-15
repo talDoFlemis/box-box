@@ -154,47 +154,55 @@ func (m *maestroHandlerV1) SayHello(ctx context.Context, req *v1Pb.HelloRequest)
 	}, nil
 }
 
-func (m *maestroHandlerV1) startTurn() {
+func (m *maestroHandlerV1) startTurn(ctx context.Context) {
 	slog.Info("Maestro is starting his turn")
 
 	lunchTicker := time.NewTicker(time.Duration(m.settings.PeriodBetweenLunchInSeconds) * time.Second)
+	defer lunchTicker.Stop()
 	hasTicketed := false
+
 	go func() {
 		<-lunchTicker.C
 		hasTicketed = true
 	}()
 
 	for {
-		ctx := context.Background()
-		slog.DebugContext(ctx, "Starting internal loop")
+		select {
+		case <-ctx.Done():
+			slog.Info("Maestro ended his turn")
+			return
+		default:
+			ctx := context.Background()
+			slog.DebugContext(ctx, "Starting internal loop")
 
-		orders, err := m.getNewBatchMessages(ctx)
-		if err != nil {
-			continue
-		}
-
-		for order := range orders {
-			err = order.InProgress()
+			orders, err := m.getNewBatchMessages(ctx)
 			if err != nil {
-				slog.ErrorContext(ctx, "failed to set message in progress", slog.Any("err", err))
 				continue
 			}
-			m.processNewOrder(ctx, order)
+
+			for order := range orders {
+				err = order.InProgress()
+				if err != nil {
+					slog.ErrorContext(ctx, "failed to set message in progress", slog.Any("err", err))
+					continue
+				}
+				m.processNewOrder(ctx, order)
+			}
+
+			if !hasTicketed {
+				continue
+			}
+
+			m.lunch(ctx)
+			hasTicketed = false
+			lunchTicker.Reset(time.Duration(m.settings.PeriodBetweenLunchInSeconds) * time.Second)
+
+			// We garantee that this goroutine will run only once
+			go func() {
+				<-lunchTicker.C
+				hasTicketed = true
+			}()
 		}
-
-		if !hasTicketed {
-			continue
-		}
-
-		m.lunch(ctx)
-		hasTicketed = false
-		lunchTicker.Reset(time.Duration(m.settings.PeriodBetweenLunchInSeconds) * time.Second)
-
-		// We garantee that this goroutine will run only once
-		go func() {
-			<-lunchTicker.C
-			hasTicketed = true
-		}()
 	}
 }
 
@@ -224,7 +232,7 @@ func (m *maestroHandlerV1) lunch(ctx context.Context) {
 	))
 	defer span.End()
 
-	m.healthServer.SetServingStatus("maestro", healthpb.HealthCheckResponse_NOT_SERVING)
+	m.healthServer.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 	m.isLunching = true
 	m.status = "lunching"
 
@@ -235,7 +243,7 @@ func (m *maestroHandlerV1) lunch(ctx context.Context) {
 	m.lunchCounter.Add(ctx, 1)
 	m.lunchHistogram.Record(ctx, float64(m.settings.LunchDurationInSeconds))
 
-	m.healthServer.SetServingStatus("maestro", healthpb.HealthCheckResponse_SERVING)
+	m.healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	m.isLunching = false
 	m.status = "idle"
 }
