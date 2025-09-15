@@ -16,7 +16,23 @@ includes:
   tifosi-load:
     taskfile: ./tifosi-load/Taskfile.yaml
     dir: ./tifosi-load
+
 tasks:
+  all:up:
+    desc: Start all services
+    cmds:
+      - task: aux:up
+      - task: telemetry:up
+      - task: services:up
+      - task: nats:up
+      - task: jaeger:up
+      - task: otel-collector:up
+      - task: load-generator:up
+
+  all:down:
+    desc: Stop all services
+    cmd: docker compose down
+
   aux:up:
     desc: Start auxiliary services
     cmd: docker compose --profile aux up -d
